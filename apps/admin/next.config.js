@@ -4,6 +4,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@azure/msal-node', 'better-sqlite3'],
   },
+  env: {
+    NEXT_PUBLIC_AZURE_AD_CLIENT_ID: process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '',
+    NEXT_PUBLIC_AZURE_AD_TENANT_ID: process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || '',
+    NEXT_PUBLIC_DEV_MODE: process.env.NEXT_PUBLIC_DEV_MODE || 'false',
+  },
   async headers() {
     return [
       {
