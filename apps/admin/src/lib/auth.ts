@@ -15,6 +15,7 @@ import { jwtVerify } from 'jose';
 const DEV_MODE = process.env.DEV_MODE === 'true';
 const API_SECRET = process.env.API_SECRET;
 const AZURE_AD_TENANT_ID = process.env.AZURE_AD_TENANT_ID;
+const AZURE_AD_CLIENT_ID = process.env.AZURE_AD_CLIENT_ID;
 
 interface AuthResult {
   authenticated: boolean;
@@ -85,6 +86,7 @@ async function validateAzureADToken(token: string): Promise<AuthResult> {
       },
       {
         issuer: `https://login.microsoftonline.com/${AZURE_AD_TENANT_ID}/v2.0`,
+        audience: AZURE_AD_CLIENT_ID,
       }
     );
 
