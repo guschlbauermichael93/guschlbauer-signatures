@@ -13,7 +13,16 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // Add-In Seiten: kein X-Frame-Options (läuft in Outlook iFrame)
+        source: '/addin/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
+        // Alle anderen Seiten: mit X-Frame-Options
+        source: '/((?!addin).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
