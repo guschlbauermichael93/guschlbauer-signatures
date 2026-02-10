@@ -279,17 +279,28 @@ async function getSignatureForContext(): Promise<SignatureResponse> {
 }
 
 /**
- * Reagiert auf Empfänger-Änderungen und tauscht die Signatur automatisch.
+ * LaunchEvent Handler: Wird von Outlook aufgerufen wenn sich Empfänger ändern.
+ * Deklariert im Manifest als OnMessageRecipientsChanged.
  * Intern (nur @guschlbauer.*) → kurze Grußformel
  * Extern oder leer → volle Signatur
  */
-async function onRecipientsChanged(): Promise<void> {
+async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Promise<void> {
   try {
+    // Bei Antworten/Weiterleitungen: nicht wechseln, immer kurze Grußformel
+    const reply = await isReplyOrForward();
+    if (reply) {
+      event.completed();
+      return;
+    }
+
     const internal = await isInternalOnly();
     const targetType = internal ? 'short' : 'full';
 
     // Nur wechseln wenn sich der Typ tatsächlich ändert
-    if (targetType === currentSignatureType) return;
+    if (targetType === currentSignatureType) {
+      event.completed();
+      return;
+    }
 
     const signatureData = internal ? getReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
@@ -297,30 +308,8 @@ async function onRecipientsChanged(): Promise<void> {
   } catch (error) {
     console.error('Signatur-Wechsel bei Empfängeränderung fehlgeschlagen:', error);
   }
-}
 
-/**
- * Registriert den RecipientsChanged-Listener auf dem aktuellen Mail-Item
- */
-function registerRecipientsWatcher(): void {
-  const item = Office.context.mailbox.item;
-  if (!item) return;
-
-  try {
-    item.to.addHandlerAsync(
-      Office.EventType.RecipientsChanged as any,
-      () => { onRecipientsChanged(); },
-      (result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          console.log('RecipientsChanged-Listener registriert');
-        } else {
-          console.warn('RecipientsChanged-Listener konnte nicht registriert werden:', result.error);
-        }
-      }
-    );
-  } catch (error) {
-    console.warn('RecipientsChanged nicht unterstützt:', error);
-  }
+  event.completed();
 }
 
 /**
@@ -359,8 +348,8 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
 }
 
 /**
- * Event Handler: Bei neuer Mail automatisch Signatur einfügen
- * + RecipientsChanged-Listener registrieren für Intern/Extern-Wechsel
+ * Event Handler: Bei neuer Mail automatisch Signatur einfügen.
+ * Empfänger-Wechsel wird über separates LaunchEvent (OnMessageRecipientsChanged) gehandelt.
  */
 async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<void> {
   try {
@@ -369,9 +358,6 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
     const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
     currentSignatureType = (await isReplyOrForward()) ? 'short' : 'full';
-
-    // Listener registrieren: Signatur automatisch wechseln wenn Empfänger sich ändern
-    registerRecipientsWatcher();
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
   }
@@ -387,6 +373,7 @@ Office.onReady((info) => {
     if (Office.actions) {
       Office.actions.associate('insertSignature', insertSignature);
       Office.actions.associate('onNewMessageComposeHandler', onNewMessageCompose);
+      Office.actions.associate('onMessageRecipientsChangedHandler', onMessageRecipientsChanged);
     }
   }
 });
@@ -395,3 +382,5 @@ Office.onReady((info) => {
 (window as any).insertSignature = insertSignature;
 (window as any).onNewMessageCompose = onNewMessageCompose;
 (window as any).onNewMessageComposeHandler = onNewMessageCompose;
+(window as any).onMessageRecipientsChanged = onMessageRecipientsChanged;
+(window as any).onMessageRecipientsChangedHandler = onMessageRecipientsChanged;
