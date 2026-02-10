@@ -19,6 +19,7 @@ function getAuthHeaders(): Record<string, string> {
 
 interface SignatureAttachment {
   id: string;
+  filename: string;
   mimeType: string;
   base64: string;
 }
@@ -93,7 +94,7 @@ function addInlineAttachment(attachment: SignatureAttachment): Promise<void> {
     if ((item as any).addFileAttachmentFromBase64Async) {
       (item as any).addFileAttachmentFromBase64Async(
         attachment.base64,
-        `${attachment.id}.${attachment.mimeType.split('/')[1] || 'png'}`,
+        attachment.filename,
         { isInline: true, asyncContext: attachment.id },
         (result: Office.AsyncResult<string>) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
@@ -109,7 +110,7 @@ function addInlineAttachment(attachment: SignatureAttachment): Promise<void> {
       const url = `${API_BASE_URL.replace('/api', '')}/api/assets/serve?id=${attachment.id}`;
       item.addFileAttachmentAsync(
         url,
-        `${attachment.id}.${attachment.mimeType.split('/')[1] || 'png'}`,
+        attachment.filename,
         { isInline: true, asyncContext: attachment.id },
         (result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {

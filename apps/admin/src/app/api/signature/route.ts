@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     let htmlContent = template.htmlContent;
     const assets = await getAllAssets();
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-    const usedAssets: Array<{ id: string; mimeType: string; base64: string }> = [];
+    const usedAssets: Array<{ id: string; filename: string; mimeType: string; base64: string }> = [];
 
     for (const asset of assets) {
       const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
@@ -79,13 +79,15 @@ export async function GET(request: NextRequest) {
 
       let src: string;
       if (embedMode === 'cid') {
-        src = `cid:${asset.id}`;
+        const ext = asset.mimeType.split('/')[1] || 'png';
+        const filename = `${asset.id}.${ext}`;
+        src = `cid:${filename}`;
         // Base64 ohne data: Prefix für Attachments
         let rawBase64 = asset.base64Data;
         if (rawBase64.startsWith('data:')) {
           rawBase64 = rawBase64.split(',')[1];
         }
-        usedAssets.push({ id: asset.id, mimeType: asset.mimeType, base64: rawBase64 });
+        usedAssets.push({ id: asset.id, filename, mimeType: asset.mimeType, base64: rawBase64 });
       } else if (embedMode === 'url') {
         src = `${baseUrl}/api/assets/serve?id=${asset.id}`;
       } else {
