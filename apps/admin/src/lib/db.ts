@@ -65,9 +65,17 @@ function initializeSchema(database: Database.Database) {
       base64_data TEXT NOT NULL,
       width INTEGER,
       height INTEGER,
+      html_tag TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: html_tag Spalte hinzufügen falls nicht vorhanden
+  try {
+    database.exec(`ALTER TABLE assets ADD COLUMN html_tag TEXT`);
+  } catch {
+    // Spalte existiert bereits
+  }
 
   // User-Template Zuweisungen
   database.exec(`

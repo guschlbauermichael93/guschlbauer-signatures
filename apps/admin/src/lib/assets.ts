@@ -12,10 +12,11 @@ interface DbAsset {
   base64_data: string;
   width: number | null;
   height: number | null;
+  html_tag: string | null;
   created_at: string;
 }
 
-function mapDbToAsset(row: DbAsset): SignatureAsset {
+function mapDbToAsset(row: DbAsset): SignatureAsset & { htmlTag?: string } {
   return {
     id: row.id,
     name: row.name,
@@ -23,6 +24,7 @@ function mapDbToAsset(row: DbAsset): SignatureAsset {
     base64Data: row.base64_data,
     width: row.width || undefined,
     height: row.height || undefined,
+    htmlTag: row.html_tag || undefined,
     createdAt: new Date(row.created_at),
   };
 }
@@ -59,19 +61,41 @@ export async function createAsset(
   base64Data: string,
   width?: number,
   height?: number,
-  userEmail?: string
+  userEmail?: string,
+  customId?: string,
+  htmlTag?: string
 ): Promise<SignatureAsset> {
   const db = getDb();
-  const id = `asset-${Date.now()}`;
+  const id = customId || `asset-${Date.now()}`;
 
   db.prepare(`
-    INSERT INTO assets (id, name, mime_type, base64_data, width, height)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, name, mimeType, base64Data, width || null, height || null);
+    INSERT INTO assets (id, name, mime_type, base64_data, width, height, html_tag)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, name, mimeType, base64Data, width || null, height || null, htmlTag || null);
 
   logAudit('create', 'asset', id, userEmail, { name, mimeType });
 
   return (await getAssetById(id))!;
+}
+
+export async function updateAssetMeta(
+  id: string,
+  updates: { name?: string; htmlTag?: string },
+  userEmail?: string
+): Promise<SignatureAsset | null> {
+  const db = getDb();
+  const existing = await getAssetById(id);
+  if (!existing) return null;
+
+  if (updates.name !== undefined) {
+    db.prepare('UPDATE assets SET name = ? WHERE id = ?').run(updates.name, id);
+  }
+  if (updates.htmlTag !== undefined) {
+    db.prepare('UPDATE assets SET html_tag = ? WHERE id = ?').run(updates.htmlTag || null, id);
+  }
+
+  logAudit('update', 'asset', id, userEmail, updates);
+  return getAssetById(id);
 }
 
 export async function updateAsset(

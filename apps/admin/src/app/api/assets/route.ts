@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getAllAssets, 
-  getAssetById, 
-  createAsset, 
-  updateAsset, 
+import {
+  getAllAssets,
+  getAssetById,
+  createAsset,
+  updateAsset,
+  updateAssetMeta,
   deleteAsset,
   isValidImageType,
-  isValidImageSize 
+  isValidImageSize
 } from '@/lib/assets';
 import { validateRequest } from '@/lib/auth';
 
@@ -47,21 +48,40 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const name = formData.get('name') as string || 'Uploaded Image';
+    const customId = formData.get('customId') as string || '';
+    const htmlTag = formData.get('htmlTag') as string || '';
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    // Custom ID validieren (nur Kleinbuchstaben, Zahlen, Bindestriche)
+    if (customId && !/^[a-z0-9-]+$/.test(customId)) {
+      return NextResponse.json({
+        error: 'Platzhalter-ID darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten'
+      }, { status: 400 });
+    }
+
+    // Prüfen ob Custom ID schon existiert
+    if (customId) {
+      const existing = await getAssetById(customId);
+      if (existing) {
+        return NextResponse.json({
+          error: `Platzhalter-ID "${customId}" ist bereits vergeben`
+        }, { status: 400 });
+      }
+    }
+
     // Validierung
     if (!isValidImageType(file.type)) {
-      return NextResponse.json({ 
-        error: 'Invalid file type. Allowed: PNG, JPEG, GIF, SVG, WebP' 
+      return NextResponse.json({
+        error: 'Invalid file type. Allowed: PNG, JPEG, GIF, SVG, WebP'
       }, { status: 400 });
     }
 
     if (!isValidImageSize(file.size)) {
-      return NextResponse.json({ 
-        error: 'File too large. Maximum 500KB' 
+      return NextResponse.json({
+        error: 'File too large. Maximum 500KB'
       }, { status: 400 });
     }
 
@@ -75,9 +95,11 @@ export async function POST(request: NextRequest) {
       name,
       file.type,
       base64Data,
-      undefined, // width - könnte mit sharp extrahiert werden
+      undefined, // width
       undefined, // height
-      auth.userEmail
+      auth.userEmail,
+      customId || undefined,
+      htmlTag || undefined
     );
 
     return NextResponse.json(asset, { status: 201 });
@@ -128,9 +150,46 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
     }
 
+    // HTML-Tag auch aktualisieren falls mitgesendet
+    const htmlTag = formData.get('htmlTag') as string | null;
+    if (htmlTag !== null) {
+      await updateAssetMeta(id, { htmlTag }, auth.userEmail);
+      return NextResponse.json(await getAssetById(id));
+    }
+
     return NextResponse.json(asset);
   } catch (error) {
     console.error('Error updating asset:', error);
+    return NextResponse.json({ error: 'Failed to update asset' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/assets
+ * Asset-Metadaten aktualisieren (Name, HTML-Tag)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await validateRequest(request);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: auth.error }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, name, htmlTag } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Asset ID required' }, { status: 400 });
+    }
+
+    const asset = await updateAssetMeta(id, { name, htmlTag }, auth.userEmail);
+    if (!asset) {
+      return NextResponse.json({ error: 'Asset not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(asset);
+  } catch (error) {
+    console.error('Error updating asset meta:', error);
     return NextResponse.json({ error: 'Failed to update asset' }, { status: 500 });
   }
 }

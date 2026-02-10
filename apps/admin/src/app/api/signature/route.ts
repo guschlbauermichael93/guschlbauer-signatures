@@ -74,7 +74,14 @@ export async function GET(request: NextRequest) {
         ? asset.base64Data
         : `data:${asset.mimeType};base64,${asset.base64Data}`;
       const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
-      htmlContent = htmlContent.replace(pattern, dataUrl);
+      // Wenn HTML-Tag definiert: ganzen Tag einsetzen, sonst nur Data-URL
+      const assetWithMeta = asset as typeof asset & { htmlTag?: string };
+      if (assetWithMeta.htmlTag) {
+        const fullTag = assetWithMeta.htmlTag.replace(/\{\{src\}\}/g, dataUrl);
+        htmlContent = htmlContent.replace(pattern, fullTag);
+      } else {
+        htmlContent = htmlContent.replace(pattern, dataUrl);
+      }
     }
 
     // Template rendern
