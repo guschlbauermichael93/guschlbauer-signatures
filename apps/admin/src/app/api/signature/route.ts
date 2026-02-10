@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     const templateId = searchParams.get('templateId');
-    const embedMode = searchParams.get('embed') || 'inline'; // 'inline' (base64) oder 'url'
+    const embedMode = searchParams.get('embed') || 'inline'; // 'inline' (base64), 'url', oder 'cid'
 
     if (!email) {
       return NextResponse.json({ error: 'Email parameter required' }, { status: 400 });
@@ -71,20 +71,37 @@ export async function GET(request: NextRequest) {
     let htmlContent = template.htmlContent;
     const assets = await getAllAssets();
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const usedAssets: Array<{ id: string; mimeType: string; base64: string }> = [];
+
     for (const asset of assets) {
-      const src = embedMode === 'url'
-        ? `${baseUrl}/api/assets/serve?id=${asset.id}`
-        : asset.base64Data.startsWith('data:')
+      const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
+      if (!pattern.test(htmlContent)) continue; // Asset wird nicht verwendet
+
+      let src: string;
+      if (embedMode === 'cid') {
+        src = `cid:${asset.id}`;
+        // Base64 ohne data: Prefix für Attachments
+        let rawBase64 = asset.base64Data;
+        if (rawBase64.startsWith('data:')) {
+          rawBase64 = rawBase64.split(',')[1];
+        }
+        usedAssets.push({ id: asset.id, mimeType: asset.mimeType, base64: rawBase64 });
+      } else if (embedMode === 'url') {
+        src = `${baseUrl}/api/assets/serve?id=${asset.id}`;
+      } else {
+        src = asset.base64Data.startsWith('data:')
           ? asset.base64Data
           : `data:${asset.mimeType};base64,${asset.base64Data}`;
-      const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
-      // Wenn HTML-Tag definiert: ganzen Tag einsetzen, sonst nur src
+      }
+
+      // Reset regex lastIndex
+      const replacePattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
       const assetWithMeta = asset as typeof asset & { htmlTag?: string };
       if (assetWithMeta.htmlTag) {
         const fullTag = assetWithMeta.htmlTag.replace(/\{\{src\}\}/g, src);
-        htmlContent = htmlContent.replace(pattern, fullTag);
+        htmlContent = htmlContent.replace(replacePattern, fullTag);
       } else {
-        htmlContent = htmlContent.replace(pattern, src);
+        htmlContent = htmlContent.replace(replacePattern, src);
       }
     }
 
@@ -92,13 +109,20 @@ export async function GET(request: NextRequest) {
     const renderedHtml = renderTemplate(htmlContent, user);
     const plainText = htmlToPlainText(renderedHtml);
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       html: renderedHtml,
       plainText,
       templateId: template.id,
       userId: user.id,
       generatedAt: new Date().toISOString(),
-    });
+    };
+
+    // Bei CID-Modus: Assets mitliefern für Inline-Attachments
+    if (embedMode === 'cid') {
+      response.attachments = usedAssets;
+    }
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Signature generation error:', error);

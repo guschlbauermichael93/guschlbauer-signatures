@@ -17,42 +17,49 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
-// Cache für Signatur (vermeidet wiederholte API-Calls)
-let cachedSignature: string | null = null;
+interface SignatureAttachment {
+  id: string;
+  mimeType: string;
+  base64: string;
+}
+
+interface SignatureResponse {
+  html: string;
+  attachments?: SignatureAttachment[];
+}
+
+// Cache
+let cachedSignature: SignatureResponse | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
 
 /**
- * Holt die gerenderte Signatur vom Server
+ * Holt die gerenderte Signatur vom Server (CID-Modus mit Inline-Attachments)
  */
-async function fetchSignature(): Promise<string> {
-  // Cache prüfen
+async function fetchSignature(): Promise<SignatureResponse> {
   if (cachedSignature && Date.now() - cacheTimestamp < CACHE_DURATION) {
     return cachedSignature;
   }
 
   try {
-    // User-Email aus Outlook holen
     const userEmail = Office.context.mailbox.userProfile.emailAddress;
-    
-    // Signatur von API holen
-    const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}&embed=url`, {
+
+    const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}&embed=cid`, {
       headers: getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    cachedSignature = data.html;
+    cachedSignature = { html: data.html, attachments: data.attachments || [] };
     cacheTimestamp = Date.now();
-    
+
     return cachedSignature;
   } catch (error) {
     console.error('Fehler beim Laden der Signatur:', error);
-    // Fallback: Einfache Signatur
-    return getFallbackSignature();
+    return { html: getFallbackSignature(), attachments: [] };
   }
 }
 
@@ -75,9 +82,58 @@ function getFallbackSignature(): string {
 }
 
 /**
+ * Fügt ein Bild als Inline-Attachment hinzu
+ */
+function addInlineAttachment(attachment: SignatureAttachment): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const item = Office.context.mailbox.item;
+    if (!item) { reject(new Error('No mail item')); return; }
+
+    // addFileAttachmentFromBase64Async (Mailbox 1.8+)
+    if ((item as any).addFileAttachmentFromBase64Async) {
+      (item as any).addFileAttachmentFromBase64Async(
+        attachment.base64,
+        `${attachment.id}.${attachment.mimeType.split('/')[1] || 'png'}`,
+        { isInline: true, asyncContext: attachment.id },
+        (result: Office.AsyncResult<string>) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            resolve();
+          } else {
+            console.warn(`Inline-Attachment ${attachment.id} fehlgeschlagen:`, result.error);
+            resolve(); // Nicht abbrechen, Signatur trotzdem setzen
+          }
+        }
+      );
+    } else {
+      // Fallback: Attachment via URL
+      const url = `${API_BASE_URL.replace('/api', '')}/api/assets/serve?id=${attachment.id}`;
+      item.addFileAttachmentAsync(
+        url,
+        `${attachment.id}.${attachment.mimeType.split('/')[1] || 'png'}`,
+        { isInline: true, asyncContext: attachment.id },
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            resolve();
+          } else {
+            console.warn(`Inline-Attachment ${attachment.id} (URL) fehlgeschlagen:`, result.error);
+            resolve();
+          }
+        }
+      );
+    }
+  });
+}
+
+/**
  * Fügt die Signatur am Ende des Mail-Bodys ein
  */
-async function insertSignatureAtEnd(signature: string): Promise<void> {
+async function insertSignatureAtEnd(signatureData: SignatureResponse): Promise<void> {
+  // 1. Inline-Attachments hinzufügen (Bilder)
+  if (signatureData.attachments && signatureData.attachments.length > 0) {
+    await Promise.all(signatureData.attachments.map(att => addInlineAttachment(att)));
+  }
+
+  // 2. HTML-Body setzen
   return new Promise((resolve, reject) => {
     Office.context.mailbox.item?.body.getAsync(
       Office.CoercionType.Html,
@@ -88,15 +144,15 @@ async function insertSignatureAtEnd(signature: string): Promise<void> {
         }
 
         const currentBody = result.value || '';
-        
+        const signature = signatureData.html;
+
         // Prüfen ob schon eine Signatur vorhanden ist
         if (currentBody.includes('<!-- guschlbauer-signature -->')) {
-          // Signatur ersetzen
           const newBody = currentBody.replace(
             /<!-- guschlbauer-signature -->[\s\S]*<!-- \/guschlbauer-signature -->/,
             `<!-- guschlbauer-signature -->\n${signature}\n<!-- /guschlbauer-signature -->`
           );
-          
+
           Office.context.mailbox.item?.body.setAsync(
             newBody,
             { coercionType: Office.CoercionType.Html },
@@ -109,14 +165,13 @@ async function insertSignatureAtEnd(signature: string): Promise<void> {
             }
           );
         } else {
-          // Signatur am Ende einfügen
           const signatureHtml = `
             <br><br>
             <!-- guschlbauer-signature -->
             ${signature}
             <!-- /guschlbauer-signature -->
           `;
-          
+
           Office.context.mailbox.item?.body.setAsync(
             currentBody + signatureHtml,
             { coercionType: Office.CoercionType.Html },
@@ -139,10 +194,9 @@ async function insertSignatureAtEnd(signature: string): Promise<void> {
  */
 async function insertSignature(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    const signature = await fetchSignature();
-    await insertSignatureAtEnd(signature);
-    
-    // Erfolgs-Notification
+    const signatureData = await fetchSignature();
+    await insertSignatureAtEnd(signatureData);
+
     Office.context.mailbox.item?.notificationMessages.addAsync(
       'signature-success',
       {
@@ -154,8 +208,7 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
     );
   } catch (error) {
     console.error('Fehler beim Einfügen der Signatur:', error);
-    
-    // Fehler-Notification
+
     Office.context.mailbox.item?.notificationMessages.addAsync(
       'signature-error',
       {
@@ -164,8 +217,7 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
       }
     );
   }
-  
-  // Event abschließen
+
   event.completed();
 }
 
@@ -174,16 +226,14 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
  */
 async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    // Kurz warten bis Outlook bereit ist
     await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const signature = await fetchSignature();
-    await insertSignatureAtEnd(signature);
+
+    const signatureData = await fetchSignature();
+    await insertSignatureAtEnd(signatureData);
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
-    // Kein Fehler anzeigen bei Auto-Insert
   }
-  
+
   event.completed();
 }
 
@@ -191,8 +241,7 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
 Office.onReady((info) => {
   if (info.host === Office.HostType.Outlook) {
     console.log('Guschlbauer Signatur Add-In geladen');
-    
-    // Event Handler für Unified Manifest registrieren
+
     if (Office.actions) {
       Office.actions.associate('insertSignature', insertSignature);
       Office.actions.associate('onNewMessageComposeHandler', onNewMessageCompose);
