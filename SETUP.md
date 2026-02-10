@@ -95,7 +95,7 @@ npm run dev:admin
 
 ### 3.2 Manifest für Produktion anpassen
 
-Ersetze in `manifest.xml` alle Vorkommen von `https://your-domain.vercel.app` mit deiner echten URL.
+Die URLs in `manifest.xml` zeigen bereits auf `https://signatures.guschlbauer.cc/addin`.
 
 ### 3.3 Add-In zentral deployen (für alle User)
 

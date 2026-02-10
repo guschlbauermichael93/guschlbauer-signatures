@@ -8,7 +8,7 @@ interface SignatureTemplate {
   isDefault: boolean;
 }
 
-const API_BASE_URL = process.env.API_URL || 'https://your-domain.vercel.app/api';
+const API_BASE_URL = process.env.API_URL || 'https://signatures.guschlbauer.cc/api';
 const API_KEY = process.env.API_KEY || '';
 
 function getAuthHeaders(): Record<string, string> {
@@ -177,7 +177,7 @@ function App() {
           Daten aktualisieren
         </button>
         <a 
-          href="https://your-domain.vercel.app" 
+          href="https://signatures.guschlbauer.cc" 
           target="_blank" 
           rel="noopener noreferrer"
           className="link"

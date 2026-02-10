@@ -60,8 +60,8 @@
           "id": "CommandsRuntime",
           "type": "general",
           "code": {
-            "page": "https://your-domain.vercel.app/commands.html",
-            "script": "https://your-domain.vercel.app/commands.js"
+            "page": "https://signatures.guschlbauer.cc/addin/commands.html",
+            "script": "https://signatures.guschlbauer.cc/addin/commands.js"
           },
           "lifetime": "short",
           "actions": [
@@ -89,7 +89,7 @@
           "id": "TaskpaneRuntime",
           "type": "general",
           "code": {
-            "page": "https://your-domain.vercel.app/taskpane.html"
+            "page": "https://signatures.guschlbauer.cc/addin/taskpane.html"
           },
           "lifetime": "short",
           "actions": [
@@ -124,15 +124,15 @@
                   "icons": [
                     {
                       "size": 16,
-                      "url": "https://your-domain.vercel.app/assets/icon-16.png"
+                      "url": "https://signatures.guschlbauer.cc/addin/assets/icon-16.png"
                     },
                     {
                       "size": 32,
-                      "url": "https://your-domain.vercel.app/assets/icon-32.png"
+                      "url": "https://signatures.guschlbauer.cc/addin/assets/icon-32.png"
                     },
                     {
                       "size": 80,
-                      "url": "https://your-domain.vercel.app/assets/icon-80.png"
+                      "url": "https://signatures.guschlbauer.cc/addin/assets/icon-80.png"
                     }
                   ],
                   "controls": [
@@ -143,15 +143,15 @@
                       "icons": [
                         {
                           "size": 16,
-                          "url": "https://your-domain.vercel.app/assets/icon-16.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/icon-16.png"
                         },
                         {
                           "size": 32,
-                          "url": "https://your-domain.vercel.app/assets/icon-32.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/icon-32.png"
                         },
                         {
                           "size": 80,
-                          "url": "https://your-domain.vercel.app/assets/icon-80.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/icon-80.png"
                         }
                       ],
                       "supertip": {
@@ -167,15 +167,15 @@
                       "icons": [
                         {
                           "size": 16,
-                          "url": "https://your-domain.vercel.app/assets/settings-16.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/settings-16.png"
                         },
                         {
                           "size": 32,
-                          "url": "https://your-domain.vercel.app/assets/settings-32.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/settings-32.png"
                         },
                         {
                           "size": 80,
-                          "url": "https://your-domain.vercel.app/assets/settings-80.png"
+                          "url": "https://signatures.guschlbauer.cc/addin/assets/settings-80.png"
                         }
                       ],
                       "supertip": {
@@ -215,7 +215,7 @@
     }
   ],
   "webApplicationInfo": {
-    "id": "YOUR_AZURE_AD_CLIENT_ID",
-    "resource": "api://your-domain.vercel.app/YOUR_AZURE_AD_CLIENT_ID"
+    "id": "20f25f38-57f0-4aa0-95f9-2fe6e3844491",
+    "resource": "api://signatures.guschlbauer.cc/20f25f38-57f0-4aa0-95f9-2fe6e3844491"
   }
 }

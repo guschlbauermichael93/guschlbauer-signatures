@@ -61,7 +61,7 @@ npm run dev:addin
 
 1. Azure Portal → App registrations → New registration
 2. Name: "Guschlbauer Signature Manager"
-3. Redirect URI: `https://your-domain.vercel.app/api/auth/callback`
+3. Redirect URI: `https://signatures.guschlbauer.cc` (SPA-Plattform)
 4. API Permissions hinzufügen:
    - `User.Read` (delegated)
    - `User.Read.All` (application) - für Admin-Abfragen

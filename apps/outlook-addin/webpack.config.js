@@ -9,7 +9,7 @@ module.exports = (env, argv) => {
   // In Prod: absolute URL zur API
   const apiUrl = isDev
     ? '/api'
-    : (process.env.API_URL || 'https://your-domain.vercel.app/api');
+    : (process.env.API_URL || 'https://signatures.guschlbauer.cc/api');
   const apiKey = process.env.API_KEY || '';
 
   return {
