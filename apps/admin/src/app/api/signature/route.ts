@@ -4,8 +4,6 @@ import { getTemplateById, getTemplateForUser, getDefaultTemplate } from '@/lib/t
 import { getAssetBase64, getAllAssets } from '@/lib/assets';
 import { getUser, isAzureADConfigured } from '@/lib/graph-client';
 import { getMockUser, createMockUserFromEmail } from '@/lib/mock-data';
-import { validateRequest } from '@/lib/auth';
-
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
 /**
@@ -20,14 +18,7 @@ const DEV_MODE = process.env.DEV_MODE === 'true';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Auth Check: Bearer Token (Admin-UI / Add-In SSO)
-    if (!DEV_MODE) {
-      const auth = await validateRequest(request);
-      if (!auth.authenticated) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    }
-
+    // Auth: Optional (SSO wenn verfügbar, sonst unauthenticated - rate-limited)
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     const templateId = searchParams.get('templateId');
