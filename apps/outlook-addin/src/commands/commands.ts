@@ -197,11 +197,58 @@ function insertSignatureFallback(item: Office.MessageCompose, signature: string)
 }
 
 /**
+ * Prüft ob die aktuelle Mail eine Antwort oder Weiterleitung ist
+ */
+function isReplyOrForward(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const item = Office.context.mailbox.item;
+    if (!item) { resolve(false); return; }
+
+    item.subject.getAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const subject = (result.value || '').trim().toUpperCase();
+        resolve(
+          subject.startsWith('RE:') ||
+          subject.startsWith('AW:') ||
+          subject.startsWith('FW:') ||
+          subject.startsWith('WG:')
+        );
+      } else {
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
+ * Einfache Grußformel-Signatur für Antworten/Weiterleitungen
+ */
+function getReplySignature(): SignatureResponse {
+  const profile = Office.context.mailbox.userProfile;
+  const name = profile.displayName || 'Mitarbeiter';
+  return {
+    html: `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin: 0;">Freundliche Gr&uuml;&szlig;e<br><strong>${name}</strong></p>`,
+    attachments: [],
+  };
+}
+
+/**
+ * Wählt die passende Signatur: voll (neue Mail) oder kurz (Antwort)
+ */
+async function getSignatureForContext(): Promise<SignatureResponse> {
+  const reply = await isReplyOrForward();
+  if (reply) {
+    return getReplySignature();
+  }
+  return fetchSignature();
+}
+
+/**
  * Command: Signatur manuell einfügen (Button-Klick)
  */
 async function insertSignature(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    const signatureData = await fetchSignature();
+    const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
 
     Office.context.mailbox.item?.notificationMessages.addAsync(
@@ -235,7 +282,7 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const signatureData = await fetchSignature();
+    const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
