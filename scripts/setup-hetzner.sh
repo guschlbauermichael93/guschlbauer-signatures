@@ -113,9 +113,6 @@ NEXT_PUBLIC_APP_URL=https://$DOMAIN
 NEXT_PUBLIC_AZURE_AD_CLIENT_ID=
 NEXT_PUBLIC_AZURE_AD_TENANT_ID=
 
-# API Secret (automatisch generiert)
-API_SECRET=$(openssl rand -base64 32)
-
 # CORS - erlaubte Origins (kommagetrennt)
 ALLOWED_ORIGINS=https://$DOMAIN
 

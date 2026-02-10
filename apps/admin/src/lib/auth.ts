@@ -3,17 +3,15 @@ import { jwtVerify } from 'jose';
 
 /**
  * Auth Middleware
- * 
+ *
  * Schützt API-Routen vor unautorisierten Zugriffen.
- * 
+ *
  * Unterstützt:
- * 1. Azure AD Bearer Tokens (für Admin-UI)
- * 2. API Secret (für Outlook Add-In)
- * 3. Dev Mode (bypassed Auth für lokale Entwicklung)
+ * 1. Azure AD Bearer Tokens (für Admin-UI und Outlook Add-In SSO)
+ * 2. Dev Mode (bypassed Auth für lokale Entwicklung)
  */
 
 const DEV_MODE = process.env.DEV_MODE === 'true';
-const API_SECRET = process.env.API_SECRET;
 const AZURE_AD_TENANT_ID = process.env.AZURE_AD_TENANT_ID;
 const AZURE_AD_CLIENT_ID = process.env.AZURE_AD_CLIENT_ID;
 
@@ -38,20 +36,7 @@ export async function validateRequest(request: NextRequest): Promise<AuthResult>
     return { authenticated: false, error: 'No authorization header' };
   }
 
-  // API Secret Check (für Add-In)
-  if (authHeader.startsWith('ApiKey ')) {
-    const apiKey = authHeader.replace('ApiKey ', '');
-    if (apiKey === API_SECRET) {
-      // Email aus Query oder Header holen
-      const email = request.nextUrl.searchParams.get('email') || 
-                    request.headers.get('x-user-email') ||
-                    'addin@internal';
-      return { authenticated: true, userEmail: email };
-    }
-    return { authenticated: false, error: 'Invalid API key' };
-  }
-
-  // Bearer Token Check (für Admin-UI)
+  // Bearer Token Check (für Admin-UI und Add-In SSO)
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '');
     return validateAzureADToken(token);
@@ -133,7 +118,6 @@ export function withAuth(
 export function isPublicRoute(pathname: string): boolean {
   const publicRoutes = [
     '/api/health',
-    '/api/signature', // Add-In nutzt API Key
   ];
   return publicRoutes.some(route => pathname.startsWith(route));
 }

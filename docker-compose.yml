@@ -9,7 +9,6 @@ services:
         - NEXT_PUBLIC_AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
         - NEXT_PUBLIC_AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
         - NEXT_PUBLIC_DEV_MODE=${DEV_MODE:-false}
-        - API_KEY=${API_SECRET}
     container_name: guschlbauer-signatures
     restart: unless-stopped
     environment:
@@ -21,7 +20,6 @@ services:
       - NEXT_PUBLIC_AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
       - NEXT_PUBLIC_AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
       - NEXT_PUBLIC_APP_URL=${APP_URL}
-      - API_SECRET=${API_SECRET}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - DEV_MODE=${DEV_MODE:-false}
     volumes:

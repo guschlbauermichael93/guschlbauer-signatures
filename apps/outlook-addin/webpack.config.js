@@ -10,7 +10,6 @@ module.exports = (env, argv) => {
   const apiUrl = isDev
     ? '/api'
     : (process.env.API_URL || 'https://signatures.guschlbauer.cc/api');
-  const apiKey = process.env.API_KEY || '';
 
   return {
     entry: {
@@ -50,7 +49,6 @@ module.exports = (env, argv) => {
     plugins: [
       new webpack.DefinePlugin({
         'process.env.API_URL': JSON.stringify(apiUrl),
-        'process.env.API_KEY': JSON.stringify(apiKey),
       }),
       new HtmlWebpackPlugin({
         template: './src/taskpane/taskpane.html',
@@ -86,7 +84,6 @@ module.exports = (env, argv) => {
           target: 'https://localhost:3002',
           secure: false, // Selbstsignierte Zertifikate akzeptieren
           changeOrigin: true,
-          headers: apiKey ? { Authorization: `ApiKey ${apiKey}` } : {},
         },
       ],
     },

@@ -5,16 +5,35 @@
 
 import { renderTemplate, AzureADUser } from '@guschlbauer/shared';
 
-// API Endpoint und Key (werden beim Build ersetzt)
+// API Endpoint (wird beim Build ersetzt)
 const API_BASE_URL = process.env.API_URL || 'https://signatures.guschlbauer.cc/api';
-const API_KEY = process.env.API_KEY || '';
 
-function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (API_KEY) {
-    headers['Authorization'] = `ApiKey ${API_KEY}`;
+// SSO Token Cache
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+
+async function getAccessToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
+  try {
+    const token = await Office.auth.getAccessTokenAsync({
+      allowSignInPrompt: true,
+    });
+    cachedToken = token;
+    tokenExpiry = Date.now() + 4 * 60 * 1000; // 4 Min Cache
+    return token;
+  } catch (error) {
+    console.warn('SSO Token Fehler:', error);
+    cachedToken = null;
+    return null;
   }
-  return headers;
+}
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
 }
 
 interface SignatureAttachment {
@@ -49,7 +68,7 @@ async function fetchSignature(): Promise<SignatureResponse> {
     const userEmail = Office.context.mailbox.userProfile.emailAddress;
 
     const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}&embed=cid`, {
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {

@@ -315,9 +315,8 @@ guschlbauer-signatures/
 Basis-URL: `https://signatures.guschlbauer.cc/api`
 
 ### Authentifizierung
-Alle Endpunkte (außer `/health` und `/assets/serve`) erfordern einen der folgenden Header:
-- `Authorization: Bearer <Azure-AD-ID-Token>` (Admin-UI)
-- `Authorization: ApiKey <API_SECRET>` (Outlook Add-In)
+Alle Endpunkte (außer `/health` und `/assets/serve`) erfordern:
+- `Authorization: Bearer <Azure-AD-Token>` (Admin-UI und Outlook Add-In SSO)
 
 ### Endpunkte
 
@@ -474,10 +473,10 @@ Dashboard-Statistiken.
 - ID-Token wird validiert (nicht Access Token)
 - Benötigte Azure AD Permissions: `User.Read` (delegated), `User.Read.All` (application)
 
-### API Key (Outlook Add-In)
-- Wird beim Docker-Build via `API_KEY` Build-Arg in den Webpack-Bundle eingebettet
-- Entspricht dem `API_SECRET` aus der Server-Konfiguration
-- Geprüft gegen `API_SECRET` Umgebungsvariable im Backend
+### Outlook Add-In SSO
+- Nutzt `Office.auth.getAccessTokenAsync()` für Azure AD Token aus der Outlook-Session
+- Token wird vom Backend wie Admin-UI-Tokens validiert (gleiche `validateAzureADToken()`)
+- Kein statischer API-Key mehr im Build-Output
 
 ### Sicherheitsmaßnahmen
 
@@ -529,7 +528,6 @@ Prüft den Betreff auf folgende Präfixe: `RE:`, `AW:`, `FW:`, `WG:`
 | Variable | Beschreibung |
 |---|---|
 | `API_URL` | Basis-URL der API (Default: `https://signatures.guschlbauer.cc/api`) |
-| `API_KEY` | API-Schlüssel für Authentifizierung (zur Build-Zeit eingebettet) |
 
 ---
 
@@ -677,7 +675,6 @@ Im Entwicklungsmodus (`DEV_MODE=true`):
 | `AZURE_AD_CLIENT_ID` | Azure AD App ID | `20f25f38-...` |
 | `AZURE_AD_CLIENT_SECRET` | Azure AD Secret | `***` |
 | `AZURE_AD_TENANT_ID` | Azure AD Tenant | `abc123-...` |
-| `API_SECRET` | API-Schlüssel für Add-In | `ZU53vZ8Q...` (generiert) |
 | `ALLOWED_ORIGINS` | Erlaubte CORS-Origins | `https://signatures.guschlbauer.cc` |
 | `DEV_MODE` | Entwicklungsmodus | `false` |
 
@@ -748,7 +745,7 @@ echo "0 3 * * 1 cd /opt/guschlbauer-signatures && docker compose run --rm certbo
 | Problem | Ursache | Lösung |
 |---|---|---|
 | Container startet nicht | Port belegt oder fehlende .env | `docker compose logs app` prüfen |
-| 401 Unauthorized (Add-In) | API_KEY nicht im Build | `docker compose up --build -d` (API_KEY muss als Build-Arg übergeben werden) |
+| 401 Unauthorized (Add-In) | SSO-Token ungültig | Azure AD App Registration prüfen (Expose an API + access_as_user Scope) |
 | CORS-Fehler | `ALLOWED_ORIGINS` nicht gesetzt | In `.env` die erlaubten Origins eintragen |
 | Bilder nicht sichtbar | Asset nicht in DB | Im Admin-Panel unter Assets prüfen |
 | Add-In erscheint nicht | Manifest nicht deployed | M365 Admin Center oder Sideloading prüfen |

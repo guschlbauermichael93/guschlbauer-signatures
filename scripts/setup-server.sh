@@ -25,9 +25,6 @@ read -sp "Azure AD Client Secret: " AZURE_AD_CLIENT_SECRET
 echo
 read -p "Azure AD Tenant ID: " AZURE_AD_TENANT_ID
 
-# API Secret generieren
-API_SECRET=$(openssl rand -hex 32)
-
 echo -e "\n${YELLOW}1. System aktualisieren...${NC}"
 apt update && apt upgrade -y
 
@@ -65,9 +62,6 @@ AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
 AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET}
 AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
 
-# API Security
-API_SECRET=${API_SECRET}
-
 # Development Mode (false für Production)
 DEV_MODE=false
 EOF
@@ -93,6 +87,3 @@ echo -e "   ${YELLOW}rm nginx/conf.d/default.conf${NC}"
 echo -e "   ${YELLOW}docker compose restart nginx${NC}"
 echo -e "5. App starten:"
 echo -e "   ${YELLOW}docker compose up -d${NC}"
-echo
-echo -e "API Secret (für Add-In Auth): ${YELLOW}${API_SECRET}${NC}"
-echo -e "Speichere diesen Wert sicher!"

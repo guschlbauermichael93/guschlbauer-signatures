@@ -7,7 +7,6 @@ import { getMockUser, createMockUserFromEmail } from '@/lib/mock-data';
 import { validateRequest } from '@/lib/auth';
 
 const DEV_MODE = process.env.DEV_MODE === 'true';
-const API_SECRET = process.env.API_SECRET;
 
 /**
  * GET /api/signature
@@ -17,11 +16,11 @@ const API_SECRET = process.env.API_SECRET;
  * - email: E-Mail des Users (required)
  * - templateId: Optional, nutzt Default wenn nicht angegeben
  * 
- * Auth: API Key Header oder Dev Mode
+ * Auth: Bearer Token (Azure AD SSO) oder Dev Mode
  */
 export async function GET(request: NextRequest) {
   try {
-    // Auth Check: ApiKey (Add-In) oder Bearer Token (Admin-UI)
+    // Auth Check: Bearer Token (Admin-UI / Add-In SSO)
     if (!DEV_MODE) {
       const auth = await validateRequest(request);
       if (!auth.authenticated) {

@@ -7,7 +7,7 @@
   xsi:type="MailApp">
 
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
-  <Version>1.4.0.0</Version>
+  <Version>1.5.0.0</Version>
   <ProviderName>Guschlbauer Backwaren GmbH</ProviderName>
   <DefaultLocale>de-AT</DefaultLocale>
   <DisplayName DefaultValue="Guschlbauer Signatur"/>
@@ -230,6 +230,16 @@
           <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Oeffnet das Signatur-Einstellungsfenster"/>
         </bt:LongStrings>
       </Resources>
+
+      <!-- SSO: Azure AD Token aus Outlook-Session -->
+      <WebApplicationInfo>
+        <Id>20f25f38-57f0-4aa0-95f9-2fe6e3844491</Id>
+        <Resource>api://signatures.guschlbauer.cc/20f25f38-57f0-4aa0-95f9-2fe6e3844491</Resource>
+        <Scopes>
+          <Scope>openid</Scope>
+          <Scope>profile</Scope>
+        </Scopes>
+      </WebApplicationInfo>
 
     </VersionOverrides>
 
