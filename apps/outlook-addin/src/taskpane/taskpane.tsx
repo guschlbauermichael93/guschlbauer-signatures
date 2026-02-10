@@ -17,8 +17,17 @@ let tokenExpiry: number = 0;
 async function getAccessToken(): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
   try {
-    const token = await Office.auth.getAccessTokenAsync({
-      allowSignInPrompt: true,
+    const token = await new Promise<string>((resolve, reject) => {
+      Office.auth.getAccessTokenAsync(
+        { allowSignInPrompt: true },
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            resolve(result.value);
+          } else {
+            reject(result.error);
+          }
+        }
+      );
     });
     cachedToken = token;
     tokenExpiry = Date.now() + 4 * 60 * 1000; // 4 Min Cache
