@@ -126,7 +126,9 @@ function addInlineAttachment(attachment: SignatureAttachment): Promise<void> {
 }
 
 /**
- * Fügt die Signatur am Ende des Mail-Bodys ein
+ * Setzt die Signatur via setSignatureAsync (Mailbox 1.10+)
+ * Platziert Signatur am Ende, Cursor bleibt oben.
+ * Fallback auf body.setAsync für ältere Clients.
  */
 async function insertSignatureAtEnd(signatureData: SignatureResponse): Promise<void> {
   // 1. Inline-Attachments hinzufügen (Bilder)
@@ -134,9 +136,38 @@ async function insertSignatureAtEnd(signatureData: SignatureResponse): Promise<v
     await Promise.all(signatureData.attachments.map(att => addInlineAttachment(att)));
   }
 
-  // 2. HTML-Body setzen
+  const signature = signatureData.html;
+  const item = Office.context.mailbox.item;
+  if (!item) return;
+
+  // 2. setSignatureAsync verwenden (Mailbox 1.10+) - Cursor bleibt oben
+  if ((item.body as any).setSignatureAsync) {
+    return new Promise((resolve, reject) => {
+      (item.body as any).setSignatureAsync(
+        signature,
+        { coercionType: Office.CoercionType.Html },
+        (result: Office.AsyncResult<void>) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            resolve();
+          } else {
+            console.warn('setSignatureAsync fehlgeschlagen, Fallback auf setAsync:', result.error);
+            insertSignatureFallback(item, signature).then(resolve).catch(reject);
+          }
+        }
+      );
+    });
+  }
+
+  // Fallback für ältere Clients
+  return insertSignatureFallback(item, signature);
+}
+
+/**
+ * Fallback: Signatur via body.setAsync einfügen
+ */
+function insertSignatureFallback(item: Office.MessageCompose, signature: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    Office.context.mailbox.item?.body.getAsync(
+    item.body.getAsync(
       Office.CoercionType.Html,
       (result) => {
         if (result.status === Office.AsyncResultStatus.Failed) {
@@ -145,45 +176,20 @@ async function insertSignatureAtEnd(signatureData: SignatureResponse): Promise<v
         }
 
         const currentBody = result.value || '';
-        const signature = signatureData.html;
 
-        // Prüfen ob schon eine Signatur vorhanden ist
         if (currentBody.includes('<!-- guschlbauer-signature -->')) {
           const newBody = currentBody.replace(
             /<!-- guschlbauer-signature -->[\s\S]*<!-- \/guschlbauer-signature -->/,
             `<!-- guschlbauer-signature -->\n${signature}\n<!-- /guschlbauer-signature -->`
           );
-
-          Office.context.mailbox.item?.body.setAsync(
-            newBody,
-            { coercionType: Office.CoercionType.Html },
-            (setResult) => {
-              if (setResult.status === Office.AsyncResultStatus.Succeeded) {
-                resolve();
-              } else {
-                reject(new Error(setResult.error?.message || 'Fehler beim Setzen der Signatur'));
-              }
-            }
-          );
+          item.body.setAsync(newBody, { coercionType: Office.CoercionType.Html }, (r) => {
+            r.status === Office.AsyncResultStatus.Succeeded ? resolve() : reject(new Error(r.error?.message));
+          });
         } else {
-          const signatureHtml = `
-            <br><br>
-            <!-- guschlbauer-signature -->
-            ${signature}
-            <!-- /guschlbauer-signature -->
-          `;
-
-          Office.context.mailbox.item?.body.setAsync(
-            currentBody + signatureHtml,
-            { coercionType: Office.CoercionType.Html },
-            (setResult) => {
-              if (setResult.status === Office.AsyncResultStatus.Succeeded) {
-                resolve();
-              } else {
-                reject(new Error(setResult.error?.message || 'Fehler beim Setzen der Signatur'));
-              }
-            }
-          );
+          const signatureHtml = `<br><br><!-- guschlbauer-signature -->\n${signature}\n<!-- /guschlbauer-signature -->`;
+          item.body.setAsync(currentBody + signatureHtml, { coercionType: Office.CoercionType.Html }, (r) => {
+            r.status === Office.AsyncResultStatus.Succeeded ? resolve() : reject(new Error(r.error?.message));
+          });
         }
       }
     );
