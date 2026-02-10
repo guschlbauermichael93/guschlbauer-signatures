@@ -15,6 +15,9 @@ let tokenExpiry: number = 0;
 async function getAccessToken(): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
   try {
+    if (!Office.auth?.getAccessTokenAsync) {
+      return null;
+    }
     const token = await new Promise<string>((resolve, reject) => {
       Office.auth.getAccessTokenAsync(
         { allowSignInPrompt: true },

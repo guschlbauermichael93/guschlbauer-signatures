@@ -118,6 +118,7 @@ export function withAuth(
 export function isPublicRoute(pathname: string): boolean {
   const publicRoutes = [
     '/api/health',
+    '/api/signature', // Fallback wenn SSO nicht verfügbar (nur lesend, rate-limited)
   ];
   return publicRoutes.some(route => pathname.startsWith(route));
 }
