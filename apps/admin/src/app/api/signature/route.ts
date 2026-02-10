@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderTemplate, htmlToPlainText, AzureADUser } from '@guschlbauer/shared';
 import { getTemplateById, getTemplateForUser, getDefaultTemplate } from '@/lib/templates';
-import { getAssetBase64 } from '@/lib/assets';
+import { getAssetBase64, getAllAssets } from '@/lib/assets';
 import { getUser, isAzureADConfigured } from '@/lib/graph-client';
 import { getMockUser, createMockUserFromEmail } from '@/lib/mock-data';
 import { validateRequest } from '@/lib/auth';
@@ -66,11 +66,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No template found' }, { status: 404 });
     }
 
-    // Logo einbetten
+    // Alle Assets einbetten (logo, banner, etc.)
     let htmlContent = template.htmlContent;
-    const logoBase64 = await getAssetBase64('logo');
-    if (logoBase64) {
-      htmlContent = htmlContent.replace(/\{\{logo\}\}/g, logoBase64);
+    const assets = await getAllAssets();
+    for (const asset of assets) {
+      const dataUrl = asset.base64Data.startsWith('data:')
+        ? asset.base64Data
+        : `data:${asset.mimeType};base64,${asset.base64Data}`;
+      const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
+      htmlContent = htmlContent.replace(pattern, dataUrl);
     }
 
     // Template rendern
