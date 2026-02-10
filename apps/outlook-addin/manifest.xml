@@ -143,8 +143,8 @@
         <Host xsi:type="MailHost">
 
           <Runtimes>
-            <Runtime>
-              <Override type="javascript" url="https://signatures.guschlbauer.cc/addin/commands.js"/>
+            <Runtime resid="Commands.Url">
+              <Override type="javascript" resid="Commands.Script.Url"/>
             </Runtime>
           </Runtimes>
 
@@ -214,6 +214,7 @@
         </bt:Images>
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://signatures.guschlbauer.cc/addin/commands.html"/>
+          <bt:Url id="Commands.Script.Url" DefaultValue="https://signatures.guschlbauer.cc/addin/commands.js"/>
           <bt:Url id="Taskpane.Url" DefaultValue="https://signatures.guschlbauer.cc/addin/taskpane.html"/>
         </bt:Urls>
         <bt:ShortStrings>
