@@ -6,7 +6,7 @@ import { Header } from '@/components/header';
 import { useAuthFetch } from '@/lib/use-auth-fetch';
 import { SignatureEditor } from '@/components/signature-editor';
 import { SignaturePreview } from '@/components/signature-preview';
-import { TEMPLATE_PLACEHOLDERS } from '@guschlbauer/shared';
+import { TEMPLATE_PLACEHOLDERS, AzureADUser } from '@guschlbauer/shared';
 
 interface Template {
   id: string;
@@ -31,6 +31,35 @@ export default function EditTemplatePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [users, setUsers] = useState<AzureADUser[]>([]);
+  const [assets, setAssets] = useState<{ id: string; base64Data: string; mimeType: string }[]>([]);
+
+  useEffect(() => {
+    // Users und Assets parallel laden
+    async function loadPreviewData() {
+      try {
+        const [usersRes, assetsRes] = await Promise.all([
+          authFetch('/api/users'),
+          authFetch('/api/assets'),
+        ]);
+        if (usersRes.ok) {
+          const data = await usersRes.json();
+          setUsers(data.items || []);
+        }
+        if (assetsRes.ok) {
+          const data = await assetsRes.json();
+          setAssets((data.items || []).map((a: any) => ({
+            id: a.id,
+            base64Data: a.base64Data,
+            mimeType: a.mimeType,
+          })));
+        }
+      } catch (err) {
+        console.error('Preview-Daten laden fehlgeschlagen:', err);
+      }
+    }
+    loadPreviewData();
+  }, []);
 
   useEffect(() => {
     async function loadTemplate() {
@@ -248,7 +277,7 @@ export default function EditTemplatePage() {
           <div className="lg:sticky lg:top-24 lg:self-start">
             <div className="bg-white rounded-xl border border-wheat-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Vorschau</h2>
-              <SignaturePreview htmlContent={htmlContent} />
+              <SignaturePreview htmlContent={htmlContent} users={users} assets={assets} />
             </div>
           </div>
         </div>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { renderTemplate, AzureADUser } from '@guschlbauer/shared';
 
-// Demo-User für die Vorschau
-const DEMO_USER: AzureADUser = {
+// Fallback-User wenn keine Users geladen
+const FALLBACK_USER: AzureADUser = {
   id: 'demo',
   displayName: 'Max Mustermann',
   givenName: 'Max',
@@ -18,31 +18,81 @@ const DEMO_USER: AzureADUser = {
   companyName: 'Guschlbauer Backwaren GmbH',
 };
 
-// Placeholder Logo (Base64 encoded simple orange square)
-const DEMO_LOGO = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjYwIiB2aWV3Qm94PSIwIDAgMTIwIDYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iNjAiIGZpbGw9IiNlZDc1MWQiIHJ4PSI4Ii8+PHRleHQgeD0iNjAiIHk9IjM4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iYm9sZCI+R3VzY2hsYmF1ZXI8L3RleHQ+PC9zdmc+';
+interface AssetData {
+  id: string;
+  base64Data: string;
+  mimeType: string;
+}
 
 interface SignaturePreviewProps {
   htmlContent: string;
   user?: AzureADUser;
+  users?: AzureADUser[];
+  assets?: AssetData[];
 }
 
-export function SignaturePreview({ htmlContent, user = DEMO_USER }: SignaturePreviewProps) {
+export function SignaturePreview({ htmlContent, user, users = [], assets = [] }: SignaturePreviewProps) {
+  const [selectedUserId, setSelectedUserId] = useState<string>(user?.id || '');
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+
+  const activeUser = useMemo(() => {
+    if (selectedUserId && users.length > 0) {
+      return users.find(u => u.id === selectedUserId) || users[0] || FALLBACK_USER;
+    }
+    return user || (users.length > 0 ? users[0] : FALLBACK_USER);
+  }, [selectedUserId, users, user]);
+
   const renderedHtml = useMemo(() => {
-    let html = renderTemplate(htmlContent, user);
-    // Logo-Platzhalter ersetzen
-    html = html.replace(/\{\{logo\}\}/g, DEMO_LOGO);
+    let html = renderTemplate(htmlContent, activeUser);
+
+    // Asset-Platzhalter durch echte Bilder ersetzen
+    for (const asset of assets) {
+      const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
+      const src = asset.base64Data.startsWith('data:')
+        ? asset.base64Data
+        : `data:${asset.mimeType};base64,${asset.base64Data}`;
+      html = html.replace(pattern, src);
+    }
+
+    // Fallback: verbleibende {{...}} Platzhalter für Assets entfernen
+    html = html.replace(/\{\{(logo|banner|icon)[^}]*\}\}/g, '');
+
     return html;
-  }, [htmlContent, user]);
+  }, [htmlContent, activeUser, assets]);
 
   return (
     <div className="space-y-4">
+      {/* User Selector */}
+      {users.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Vorschau-Mitarbeiter
+          </label>
+          <select
+            value={selectedUserId || activeUser.id}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            className="w-full px-3 py-2 border border-wheat-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+          >
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.displayName} - {u.jobTitle || 'Mitarbeiter'}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Mail Preview Container */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div
+        className="border border-gray-200 rounded-lg overflow-hidden mx-auto transition-all duration-300"
+        style={{ maxWidth: device === 'mobile' ? '375px' : '100%' }}
+      >
         {/* Fake Mail Header */}
         <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-500">Von:</span>
-            <span className="text-gray-900">{user.displayName} &lt;{user.mail}&gt;</span>
+            <span className="text-gray-900">{activeUser.displayName} &lt;{activeUser.mail}&gt;</span>
           </div>
           <div className="flex items-center gap-3 text-sm mt-1">
             <span className="text-gray-500">An:</span>
@@ -65,8 +115,9 @@ export function SignaturePreview({ htmlContent, user = DEMO_USER }: SignaturePre
           </p>
 
           {/* Signature */}
-          <div 
+          <div
             className="signature-preview mt-4 pt-4 border-t border-gray-100"
+            style={{ overflowX: 'auto' }}
             dangerouslySetInnerHTML={{ __html: renderedHtml }}
           />
         </div>
@@ -74,10 +125,24 @@ export function SignaturePreview({ htmlContent, user = DEMO_USER }: SignaturePre
 
       {/* Device Selector */}
       <div className="flex items-center justify-center gap-2">
-        <button className="px-3 py-1.5 text-sm bg-brand-100 text-brand-700 rounded-lg font-medium">
+        <button
+          onClick={() => setDevice('desktop')}
+          className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+            device === 'desktop'
+              ? 'bg-brand-100 text-brand-700'
+              : 'text-gray-600 hover:bg-wheat-100'
+          }`}
+        >
           Desktop
         </button>
-        <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-wheat-100 rounded-lg">
+        <button
+          onClick={() => setDevice('mobile')}
+          className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+            device === 'mobile'
+              ? 'bg-brand-100 text-brand-700'
+              : 'text-gray-600 hover:bg-wheat-100'
+          }`}
+        >
           Mobile
         </button>
       </div>
