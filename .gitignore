@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.production.local
+
+# Database
+data/
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Debug logs
+npm-debug.log*
+*.log
+
+# Uploads
+uploads/
+
+# Certificates
+certificates/
+
+# Claude Code
+.claude/
+
+# Windows artifacts
+nul

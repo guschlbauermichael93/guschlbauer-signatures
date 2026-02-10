@@ -1,0 +1,81 @@
+services:
+  # Next.js Admin + API
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_APP_URL=${APP_URL}
+        - NEXT_PUBLIC_AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
+        - NEXT_PUBLIC_AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
+        - NEXT_PUBLIC_DEV_MODE=${DEV_MODE:-false}
+    container_name: guschlbauer-signatures
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/data/signatures.db
+      - AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
+      - AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET}
+      - AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
+      - NEXT_PUBLIC_AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
+      - NEXT_PUBLIC_AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
+      - NEXT_PUBLIC_APP_URL=${APP_URL}
+      - API_SECRET=${API_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - DEV_MODE=${DEV_MODE:-false}
+    volumes:
+      - app-data:/data
+      - uploads:/app/uploads
+    networks:
+      - web
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy mit SSL
+  nginx:
+    image: nginx:alpine
+    container_name: guschlbauer-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - web-root:/var/www/html
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - web
+
+  # Certbot für Let's Encrypt
+  certbot:
+    image: certbot/certbot
+    container_name: guschlbauer-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - web-root:/var/www/html
+    depends_on:
+      - nginx
+    command: certonly --webroot --webroot-path=/var/www/html --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+
+volumes:
+  app-data:
+  uploads:
+  certbot-etc:
+  certbot-var:
+  web-root:
+
+networks:
+  web:
+    driver: bridge

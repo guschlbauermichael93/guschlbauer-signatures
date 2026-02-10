@@ -1,0 +1,89 @@
+# HTTP → HTTPS Redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+
+    # Let's Encrypt Challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Alles andere zu HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS Server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${DOMAIN};
+
+    # SSL Zertifikate (Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    # SSL Einstellungen
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    # Moderne SSL Konfiguration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    # CORS wird von der Next.js Middleware gehandhabt (ALLOWED_ORIGINS env var)
+    # Kein CORS in nginx konfigurieren um Konflikte zu vermeiden
+
+    # Statische Files cachen
+    location /_next/static {
+        proxy_pass http://app:3000;
+        proxy_cache_valid 60m;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # API Requests
+    location /api {
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Outlook Add-In Files
+    location ~* \.(html|js|css|png|svg|xml|json)$ {
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Caching für Add-In Assets
+        add_header Cache-Control "public, max-age=3600";
+    }
+
+    # Alle anderen Requests
+    location / {
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

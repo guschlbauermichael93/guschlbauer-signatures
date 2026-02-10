@@ -1,0 +1,45 @@
+# Dependencies
+node_modules
+*/node_modules
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+.next
+dist
+out
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Scripts & docs
+scripts/
+DEPLOYMENT.md
+README.md
+*.md
+
+# Nginx config (mounted separately)
+nginx/
+
+# Data
+data/
+*.db

@@ -1,0 +1,20 @@
+# Development Dockerfile mit Hot Reload
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Dependencies installieren
+COPY package*.json ./
+COPY turbo.json ./
+COPY packages ./packages
+COPY apps/admin/package*.json ./apps/admin/
+
+RUN npm ci
+
+# Data Verzeichnisse
+RUN mkdir -p /data /app/uploads
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev:admin"]

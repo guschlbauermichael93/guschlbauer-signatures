@@ -1,0 +1,22 @@
+# Development Dockerfile mit Hot Reload
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Dependencies
+COPY package.json package-lock.json* ./
+COPY apps/admin/package.json ./apps/admin/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN npm install
+
+# Source (wird per Volume gemountet für Hot Reload)
+COPY apps/admin ./apps/admin
+COPY packages/shared ./packages/shared
+COPY turbo.json ./
+
+WORKDIR /app/apps/admin
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

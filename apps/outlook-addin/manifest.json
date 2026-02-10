@@ -1,0 +1,221 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/vDevPreview/MicrosoftTeams.schema.json",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "version": "1.0.0",
+  "manifestVersion": "devPreview",
+  "name": {
+    "short": "Guschlbauer Signatur",
+    "full": "Guschlbauer Signatur Manager"
+  },
+  "description": {
+    "short": "Automatische E-Mail-Signatur für Guschlbauer Mitarbeiter",
+    "full": "Fügt automatisch die offizielle Guschlbauer-Signatur mit Logo und Kontaktdaten in Ihre E-Mails ein. Die Signatur wird mit Ihren Daten aus dem Unternehmensverzeichnis personalisiert."
+  },
+  "developer": {
+    "name": "Guschlbauer Backwaren GmbH",
+    "websiteUrl": "https://www.guschlbauer.at",
+    "privacyUrl": "https://www.guschlbauer.at/datenschutz",
+    "termsOfUseUrl": "https://www.guschlbauer.at/agb"
+  },
+  "icons": {
+    "color": "assets/icon-192.png",
+    "outline": "assets/icon-32.png"
+  },
+  "accentColor": "#ed751d",
+  "localizationInfo": {
+    "defaultLanguageTag": "de-AT",
+    "additionalLanguages": []
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "MailboxItem.ReadWrite.User",
+          "type": "Delegated"
+        }
+      ]
+    }
+  },
+  "extensions": [
+    {
+      "requirements": {
+        "scopes": ["mail"],
+        "capabilities": [
+          {
+            "name": "Mailbox",
+            "minVersion": "1.5"
+          }
+        ]
+      },
+      "runtimes": [
+        {
+          "requirements": {
+            "capabilities": [
+              {
+                "name": "Mailbox",
+                "minVersion": "1.5"
+              }
+            ]
+          },
+          "id": "CommandsRuntime",
+          "type": "general",
+          "code": {
+            "page": "https://your-domain.vercel.app/commands.html",
+            "script": "https://your-domain.vercel.app/commands.js"
+          },
+          "lifetime": "short",
+          "actions": [
+            {
+              "id": "insertSignature",
+              "type": "executeFunction",
+              "displayName": "Signatur einfügen"
+            },
+            {
+              "id": "onNewMessageComposeHandler",
+              "type": "executeFunction",
+              "displayName": "Auto-Signatur"
+            }
+          ]
+        },
+        {
+          "requirements": {
+            "capabilities": [
+              {
+                "name": "Mailbox",
+                "minVersion": "1.5"
+              }
+            ]
+          },
+          "id": "TaskpaneRuntime",
+          "type": "general",
+          "code": {
+            "page": "https://your-domain.vercel.app/taskpane.html"
+          },
+          "lifetime": "short",
+          "actions": [
+            {
+              "id": "openTaskpane",
+              "type": "openPage",
+              "displayName": "Einstellungen",
+              "pinnable": true,
+              "view": "content"
+            }
+          ]
+        }
+      ],
+      "ribbons": [
+        {
+          "requirements": {
+            "capabilities": [
+              {
+                "name": "Mailbox",
+                "minVersion": "1.5"
+              }
+            ]
+          },
+          "contexts": ["mailCompose"],
+          "tabs": [
+            {
+              "builtInTabId": "TabDefault",
+              "groups": [
+                {
+                  "id": "SignatureGroup",
+                  "label": "Signatur",
+                  "icons": [
+                    {
+                      "size": 16,
+                      "url": "https://your-domain.vercel.app/assets/icon-16.png"
+                    },
+                    {
+                      "size": 32,
+                      "url": "https://your-domain.vercel.app/assets/icon-32.png"
+                    },
+                    {
+                      "size": 80,
+                      "url": "https://your-domain.vercel.app/assets/icon-80.png"
+                    }
+                  ],
+                  "controls": [
+                    {
+                      "id": "InsertSignatureButton",
+                      "type": "button",
+                      "label": "Signatur einfügen",
+                      "icons": [
+                        {
+                          "size": 16,
+                          "url": "https://your-domain.vercel.app/assets/icon-16.png"
+                        },
+                        {
+                          "size": 32,
+                          "url": "https://your-domain.vercel.app/assets/icon-32.png"
+                        },
+                        {
+                          "size": 80,
+                          "url": "https://your-domain.vercel.app/assets/icon-80.png"
+                        }
+                      ],
+                      "supertip": {
+                        "title": "Signatur einfügen",
+                        "description": "Fügt Ihre persönliche Guschlbauer-Signatur in die E-Mail ein"
+                      },
+                      "actionId": "insertSignature"
+                    },
+                    {
+                      "id": "OpenTaskpaneButton",
+                      "type": "button",
+                      "label": "Einstellungen",
+                      "icons": [
+                        {
+                          "size": 16,
+                          "url": "https://your-domain.vercel.app/assets/settings-16.png"
+                        },
+                        {
+                          "size": 32,
+                          "url": "https://your-domain.vercel.app/assets/settings-32.png"
+                        },
+                        {
+                          "size": 80,
+                          "url": "https://your-domain.vercel.app/assets/settings-80.png"
+                        }
+                      ],
+                      "supertip": {
+                        "title": "Signatur-Einstellungen",
+                        "description": "Öffnet das Einstellungsfenster für die Signatur"
+                      },
+                      "actionId": "openTaskpane"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "autoRunEvents": [
+        {
+          "requirements": {
+            "capabilities": [
+              {
+                "name": "Mailbox",
+                "minVersion": "1.10"
+              }
+            ]
+          },
+          "events": [
+            {
+              "type": "newMessageComposeCreated",
+              "actionId": "onNewMessageComposeHandler",
+              "options": {
+                "sendMode": "promptUser"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "webApplicationInfo": {
+    "id": "YOUR_AZURE_AD_CLIENT_ID",
+    "resource": "api://your-domain.vercel.app/YOUR_AZURE_AD_CLIENT_ID"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "guschlbauer-signatures",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:addin": "npm run dev --workspace=apps/outlook-addin",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.0.0"
+}
