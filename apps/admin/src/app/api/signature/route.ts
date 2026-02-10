@@ -4,6 +4,7 @@ import { getTemplateById, getTemplateForUser, getDefaultTemplate } from '@/lib/t
 import { getAssetBase64 } from '@/lib/assets';
 import { getUser, isAzureADConfigured } from '@/lib/graph-client';
 import { getMockUser, createMockUserFromEmail } from '@/lib/mock-data';
+import { validateRequest } from '@/lib/auth';
 
 const DEV_MODE = process.env.DEV_MODE === 'true';
 const API_SECRET = process.env.API_SECRET;
@@ -20,10 +21,10 @@ const API_SECRET = process.env.API_SECRET;
  */
 export async function GET(request: NextRequest) {
   try {
-    // Auth Check
+    // Auth Check: ApiKey (Add-In) oder Bearer Token (Admin-UI)
     if (!DEV_MODE) {
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader?.startsWith('ApiKey ') || authHeader.replace('ApiKey ', '') !== API_SECRET) {
+      const auth = await validateRequest(request);
+      if (!auth.authenticated) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
