@@ -34,6 +34,9 @@ let cachedSignature: SignatureResponse | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
 
+// Aktueller Signatur-Typ (um unnötige Wechsel zu vermeiden)
+let currentSignatureType: 'full' | 'short' | null = null;
+
 /**
  * Holt die gerenderte Signatur vom Server (CID-Modus mit Inline-Attachments)
  */
@@ -276,6 +279,51 @@ async function getSignatureForContext(): Promise<SignatureResponse> {
 }
 
 /**
+ * Reagiert auf Empfänger-Änderungen und tauscht die Signatur automatisch.
+ * Intern (nur @guschlbauer.*) → kurze Grußformel
+ * Extern oder leer → volle Signatur
+ */
+async function onRecipientsChanged(): Promise<void> {
+  try {
+    const internal = await isInternalOnly();
+    const targetType = internal ? 'short' : 'full';
+
+    // Nur wechseln wenn sich der Typ tatsächlich ändert
+    if (targetType === currentSignatureType) return;
+
+    const signatureData = internal ? getReplySignature() : await fetchSignature();
+    await insertSignatureAtEnd(signatureData);
+    currentSignatureType = targetType;
+  } catch (error) {
+    console.error('Signatur-Wechsel bei Empfängeränderung fehlgeschlagen:', error);
+  }
+}
+
+/**
+ * Registriert den RecipientsChanged-Listener auf dem aktuellen Mail-Item
+ */
+function registerRecipientsWatcher(): void {
+  const item = Office.context.mailbox.item;
+  if (!item) return;
+
+  try {
+    item.to.addHandlerAsync(
+      Office.EventType.RecipientsChanged as any,
+      () => { onRecipientsChanged(); },
+      (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          console.log('RecipientsChanged-Listener registriert');
+        } else {
+          console.warn('RecipientsChanged-Listener konnte nicht registriert werden:', result.error);
+        }
+      }
+    );
+  } catch (error) {
+    console.warn('RecipientsChanged nicht unterstützt:', error);
+  }
+}
+
+/**
  * Command: Signatur manuell einfügen (Button-Klick)
  * Prüft Empfänger: intern → kurze Grußformel, extern → volle Signatur
  */
@@ -284,6 +332,7 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
     const internal = await isInternalOnly();
     const signatureData = internal ? getReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
+    currentSignatureType = internal ? 'short' : 'full';
 
     Office.context.mailbox.item?.notificationMessages.addAsync(
       'signature-success',
@@ -311,6 +360,7 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
 
 /**
  * Event Handler: Bei neuer Mail automatisch Signatur einfügen
+ * + RecipientsChanged-Listener registrieren für Intern/Extern-Wechsel
  */
 async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<void> {
   try {
@@ -318,6 +368,10 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
 
     const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
+    currentSignatureType = (await isReplyOrForward()) ? 'short' : 'full';
+
+    // Listener registrieren: Signatur automatisch wechseln wenn Empfänger sich ändern
+    registerRecipientsWatcher();
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
   }
