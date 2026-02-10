@@ -36,7 +36,7 @@ async function fetchSignature(): Promise<string> {
     const userEmail = Office.context.mailbox.userProfile.emailAddress;
     
     // Signatur von API holen
-    const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}`, {
+    const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}&embed=url`, {
       headers: getAuthHeaders(),
     });
     

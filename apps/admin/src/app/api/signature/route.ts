@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     const templateId = searchParams.get('templateId');
+    const embedMode = searchParams.get('embed') || 'inline'; // 'inline' (base64) oder 'url'
 
     if (!email) {
       return NextResponse.json({ error: 'Email parameter required' }, { status: 400 });
@@ -69,18 +70,21 @@ export async function GET(request: NextRequest) {
     // Alle Assets einbetten (logo, banner, etc.)
     let htmlContent = template.htmlContent;
     const assets = await getAllAssets();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     for (const asset of assets) {
-      const dataUrl = asset.base64Data.startsWith('data:')
-        ? asset.base64Data
-        : `data:${asset.mimeType};base64,${asset.base64Data}`;
+      const src = embedMode === 'url'
+        ? `${baseUrl}/api/assets/serve?id=${asset.id}`
+        : asset.base64Data.startsWith('data:')
+          ? asset.base64Data
+          : `data:${asset.mimeType};base64,${asset.base64Data}`;
       const pattern = new RegExp(`\\{\\{${asset.id}\\}\\}`, 'g');
-      // Wenn HTML-Tag definiert: ganzen Tag einsetzen, sonst nur Data-URL
+      // Wenn HTML-Tag definiert: ganzen Tag einsetzen, sonst nur src
       const assetWithMeta = asset as typeof asset & { htmlTag?: string };
       if (assetWithMeta.htmlTag) {
-        const fullTag = assetWithMeta.htmlTag.replace(/\{\{src\}\}/g, dataUrl);
+        const fullTag = assetWithMeta.htmlTag.replace(/\{\{src\}\}/g, src);
         htmlContent = htmlContent.replace(pattern, fullTag);
       } else {
-        htmlContent = htmlContent.replace(pattern, dataUrl);
+        htmlContent = htmlContent.replace(pattern, src);
       }
     }
 

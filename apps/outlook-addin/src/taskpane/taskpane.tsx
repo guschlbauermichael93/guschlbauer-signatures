@@ -66,7 +66,7 @@ function App() {
     try {
       const email = Office.context.mailbox.userProfile.emailAddress;
       const response = await fetch(
-        `${API_BASE_URL}/signature?email=${encodeURIComponent(email)}&templateId=${selectedTemplate}`,
+        `${API_BASE_URL}/signature?email=${encodeURIComponent(email)}&templateId=${selectedTemplate}&embed=url`,
         { headers: getAuthHeaders() }
       );
       
