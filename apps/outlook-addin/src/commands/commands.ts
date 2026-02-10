@@ -248,7 +248,7 @@ async function getSignatureForContext(): Promise<SignatureResponse> {
  */
 async function insertSignature(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    const signatureData = await getSignatureForContext();
+    const signatureData = await fetchSignature();
     await insertSignatureAtEnd(signatureData);
 
     Office.context.mailbox.item?.notificationMessages.addAsync(
