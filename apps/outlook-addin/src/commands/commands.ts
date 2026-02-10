@@ -221,7 +221,7 @@ function isReplyOrForward(): Promise<boolean> {
 }
 
 /**
- * Einfache Grußformel-Signatur für Antworten/Weiterleitungen
+ * Einfache Grußformel-Signatur für interne Antworten/Weiterleitungen
  */
 function getReplySignature(): SignatureResponse {
   const profile = Office.context.mailbox.userProfile;
@@ -233,12 +233,50 @@ function getReplySignature(): SignatureResponse {
 }
 
 /**
- * Wählt die passende Signatur: voll (neue Mail) oder kurz (Antwort)
+ * Prüft ob ALLE Empfänger (To) intern sind (@guschlbauer.*)
+ */
+function isInternalOnly(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const item = Office.context.mailbox.item;
+    if (!item) { resolve(false); return; }
+
+    item.to.getAsync((result) => {
+      if (result.status !== Office.AsyncResultStatus.Succeeded || !result.value) {
+        resolve(false);
+        return;
+      }
+
+      const recipients = result.value as Office.EmailAddressDetails[];
+      if (recipients.length === 0) {
+        // Keine Empfänger -> kann nicht beurteilt werden, volle Signatur
+        resolve(false);
+        return;
+      }
+
+      const allInternal = recipients.every((r) => {
+        const email = (r.emailAddress || '').toLowerCase();
+        return email.endsWith('@guschlbauer.at') || email.endsWith('@guschlbauer.cc');
+      });
+      resolve(allInternal);
+    });
+  });
+}
+
+/**
+ * Wählt die passende Signatur basierend auf Kontext:
+ * - Neue Mail: volle Signatur
+ * - Antwort/Weiterleitung intern: kurze Grußformel
+ * - Antwort/Weiterleitung extern: volle Signatur
  */
 async function getSignatureForContext(): Promise<SignatureResponse> {
   const reply = await isReplyOrForward();
   if (reply) {
-    return getReplySignature();
+    const internal = await isInternalOnly();
+    if (internal) {
+      return getReplySignature();
+    }
+    // Extern: volle Signatur auch bei Antwort
+    return fetchSignature();
   }
   return fetchSignature();
 }
