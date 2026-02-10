@@ -14,11 +14,8 @@ import { validateRequest } from '@/lib/auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await validateRequest(request);
-    if (!auth.authenticated) {
-      return NextResponse.json({ error: auth.error }, { status: 401 });
-    }
-
+    // GET ist öffentlich (Add-In braucht Template-Liste, enthält keine sensiblen Daten)
+    // POST/PUT/DELETE bleiben auth-geschützt
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
