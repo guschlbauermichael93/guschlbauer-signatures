@@ -263,30 +263,26 @@ function isInternalOnly(): Promise<boolean> {
 }
 
 /**
- * Wählt die passende Signatur basierend auf Kontext:
- * - Neue Mail: volle Signatur
- * - Antwort/Weiterleitung intern: kurze Grußformel
- * - Antwort/Weiterleitung extern: volle Signatur
+ * Wählt die passende Signatur basierend auf Kontext (Auto-Insert):
+ * - Antwort/Weiterleitung: kurze Grußformel
+ * - Neue Mail: volle Signatur (noch keine Empfänger bekannt)
  */
 async function getSignatureForContext(): Promise<SignatureResponse> {
   const reply = await isReplyOrForward();
   if (reply) {
-    const internal = await isInternalOnly();
-    if (internal) {
-      return getReplySignature();
-    }
-    // Extern: volle Signatur auch bei Antwort
-    return fetchSignature();
+    return getReplySignature();
   }
   return fetchSignature();
 }
 
 /**
  * Command: Signatur manuell einfügen (Button-Klick)
+ * Prüft Empfänger: intern → kurze Grußformel, extern → volle Signatur
  */
 async function insertSignature(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    const signatureData = await fetchSignature();
+    const internal = await isInternalOnly();
+    const signatureData = internal ? getReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
 
     Office.context.mailbox.item?.notificationMessages.addAsync(
