@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 
 interface Stats {
   templates: number;
@@ -10,13 +11,14 @@ interface Stats {
 
 export function QuickStats() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const authFetch = useAuthFetch();
 
   useEffect(() => {
-    fetch('/api/stats')
+    authFetch('/api/stats')
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(() => {});
-  }, []);
+  }, [authFetch]);
 
   const items = [
     {

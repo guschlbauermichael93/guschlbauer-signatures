@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 
 interface Template {
   id: string;
@@ -16,10 +17,11 @@ export function TemplateList() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const authFetch = useAuthFetch();
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
-      const res = await fetch('/api/templates');
+      const res = await authFetch('/api/templates');
       if (!res.ok) throw new Error('Fehler beim Laden');
       const data = await res.json();
       setTemplates(data.items || []);
@@ -28,17 +30,17 @@ export function TemplateList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Vorlage "${name}" wirklich löschen?`)) return;
 
     try {
-      const res = await fetch(`/api/templates?id=${id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/templates?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Fehler beim Löschen');

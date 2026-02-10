@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from '@/components/header';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 
 interface Asset {
   id: string;
@@ -18,14 +19,11 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const authFetch = useAuthFetch();
 
-  useEffect(() => {
-    loadAssets();
-  }, []);
-
-  const loadAssets = async () => {
+  const loadAssets = useCallback(async () => {
     try {
-      const res = await fetch('/api/assets');
+      const res = await authFetch('/api/assets');
       const data = await res.json();
       setAssets(data.items || []);
     } catch (error) {
@@ -33,7 +31,11 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
+
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,7 +47,7 @@ export default function AssetsPage() {
       formData.append('file', file);
       formData.append('name', file.name);
 
-      const res = await fetch('/api/assets', {
+      const res = await authFetch('/api/assets', {
         method: 'POST',
         body: formData,
       });
@@ -77,7 +79,7 @@ export default function AssetsPage() {
       formData.append('id', 'logo');
       formData.append('file', file);
 
-      const res = await fetch('/api/assets', {
+      const res = await authFetch('/api/assets', {
         method: 'PUT',
         body: formData,
       });
@@ -100,7 +102,7 @@ export default function AssetsPage() {
     if (!confirm('Asset wirklich löschen?')) return;
 
     try {
-      const res = await fetch(`/api/assets?id=${id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/assets?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         await loadAssets();
       } else {

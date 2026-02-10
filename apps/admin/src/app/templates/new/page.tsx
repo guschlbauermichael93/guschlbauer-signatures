@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 import { SignatureEditor } from '@/components/signature-editor';
 import { SignaturePreview } from '@/components/signature-preview';
 import { TEMPLATE_PLACEHOLDERS } from '@guschlbauer/shared';
@@ -35,6 +36,7 @@ const DEFAULT_TEMPLATE = `<table cellpadding="0" cellspacing="0" border="0" styl
 
 export default function NewTemplatePage() {
   const router = useRouter();
+  const authFetch = useAuthFetch();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [htmlContent, setHtmlContent] = useState(DEFAULT_TEMPLATE);
@@ -56,7 +58,7 @@ export default function NewTemplatePage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/templates', {
+      const res = await authFetch('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description, htmlContent, isDefault }),

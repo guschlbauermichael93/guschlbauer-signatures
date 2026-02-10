@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 import { SignatureEditor } from '@/components/signature-editor';
 import { SignaturePreview } from '@/components/signature-preview';
 import { TEMPLATE_PLACEHOLDERS } from '@guschlbauer/shared';
@@ -19,6 +20,7 @@ interface Template {
 export default function EditTemplatePage() {
   const params = useParams();
   const router = useRouter();
+  const authFetch = useAuthFetch();
   const templateId = params.id as string;
 
   const [name, setName] = useState('');
@@ -33,7 +35,7 @@ export default function EditTemplatePage() {
   useEffect(() => {
     async function loadTemplate() {
       try {
-        const res = await fetch(`/api/templates?id=${templateId}`);
+        const res = await authFetch(`/api/templates?id=${templateId}`);
         if (res.status === 404) {
           setNotFound(true);
           return;
@@ -63,7 +65,7 @@ export default function EditTemplatePage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/templates', {
+      const res = await authFetch('/api/templates', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: templateId, name, description, htmlContent, isDefault }),

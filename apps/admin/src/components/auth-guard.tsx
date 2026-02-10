@@ -30,7 +30,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
           <button
             onClick={() => {
               instance.loginPopup({
-                scopes: ['User.Read', 'User.Read.All'],
+                scopes: ['User.Read'],
               });
             }}
             className="w-full px-6 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors font-medium"

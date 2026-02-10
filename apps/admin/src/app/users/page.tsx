@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/header';
+import { useAuthFetch } from '@/lib/use-auth-fetch';
 
 interface User {
   id: string;
@@ -25,16 +26,13 @@ export default function UsersPage() {
   const [source, setSource] = useState<'mock' | 'azure-ad'>('mock');
   const [previewUser, setPreviewUser] = useState<User | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string>('');
+  const authFetch = useAuthFetch();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [usersRes, templatesRes] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/templates'),
+        authFetch('/api/users'),
+        authFetch('/api/templates'),
       ]);
 
       const usersData = await usersRes.json();
@@ -48,11 +46,15 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleTemplateChange = async (userEmail: string, templateId: string) => {
     try {
-      const res = await fetch('/api/users', {
+      const res = await authFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userEmail, templateId }),
@@ -69,7 +71,7 @@ export default function UsersPage() {
   const handlePreview = async (user: User) => {
     setPreviewUser(user);
     try {
-      const res = await fetch(`/api/signature?email=${encodeURIComponent(user.mail)}`);
+      const res = await authFetch(`/api/signature?email=${encodeURIComponent(user.mail)}`);
       const data = await res.json();
       setPreviewHtml(data.html || '');
     } catch (error) {
