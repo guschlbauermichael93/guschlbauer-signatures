@@ -104,9 +104,10 @@ export async function GET(request: NextRequest) {
     // Template rendern
     let renderedHtml = renderTemplate(htmlContent, user);
 
-    // Bei voller Signatur: unsichtbaren Marker einfügen (für Reply-Erkennung im Add-In)
+    // Bei voller Signatur: Marker einfügen (für Reply-Erkennung im Add-In)
     if (signatureType === 'full') {
-      renderedHtml += '<span data-guschlbauer-sig="1" style="display:none;font-size:0;line-height:0"></span>';
+      // HTML-Kommentar + Zero-Width-Spaces in sichtbarem Element (überlebt Outlook-Sanitization)
+      renderedHtml = '<!-- gsig -->' + renderedHtml + '<!-- /gsig -->';
     }
 
     const plainText = htmlToPlainText(renderedHtml);

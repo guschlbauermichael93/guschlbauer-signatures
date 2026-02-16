@@ -232,8 +232,10 @@ function insertSignatureFallback(item: Office.MessageCompose, signature: string)
 
 /**
  * Prüft ob die vollständige Signatur bereits im E-Mail-Body vorhanden ist.
- * Erkennung über unsichtbaren Marker-Span (data-guschlbauer-sig),
- * HTML-Kommentar (guschlbauer-signature) als Fallback.
+ * Erkennung über:
+ * 1. HTML-Kommentar <!-- gsig --> (primär)
+ * 2. Legacy-Kommentar <!-- guschlbauer-signature --> (Fallback)
+ * 3. Firmenname "Guschlbauer Backwaren" im Body (Content-Fallback)
  */
 function hasExistingSignature(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -247,8 +249,9 @@ function hasExistingSignature(): Promise<boolean> {
       }
       const body = result.value;
       resolve(
-        body.includes('data-guschlbauer-sig') ||
-        body.includes('<!-- guschlbauer-signature -->')
+        body.includes('<!-- gsig -->') ||
+        body.includes('<!-- guschlbauer-signature -->') ||
+        body.includes('Guschlbauer Backwaren')
       );
     });
   });
