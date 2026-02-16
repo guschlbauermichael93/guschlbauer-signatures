@@ -68,6 +68,9 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
 // Aktueller Signatur-Typ (um unnötige Wechsel zu vermeiden)
 let currentSignatureType: 'full' | 'short' | null = null;
 
+// Ob der E-Mail-Thread bereits eine Guschlbauer-Signatur enthält (wird einmal beim Compose-Start geprüft)
+let threadHasSignature: boolean = false;
+
 /**
  * Holt die gerenderte Signatur vom Server (CID-Modus mit Inline-Attachments)
  */
@@ -329,36 +332,39 @@ function isInternalOnly(): Promise<boolean> {
 /**
  * Wählt die passende Signatur basierend auf Kontext (Auto-Insert):
  * - Nur interne Empfänger → immer kurze Signatur
- * - Externe Empfänger + Signatur schon im Body → kurze Signatur
- * - Externe Empfänger + keine Signatur im Body → volle Signatur
+ * - Externe Empfänger + Signatur schon im Thread → kurze Signatur
+ * - Externe Empfänger + keine Signatur im Thread → volle Signatur
+ *
+ * WICHTIG: threadHasSignature muss VOR dem Aufruf gesetzt werden,
+ * da nach dem Einfügen unserer eigenen Signatur die Body-Prüfung
+ * immer positiv wäre (false positive).
  */
-async function getSignatureForContext(): Promise<SignatureResponse> {
+async function getSignatureForContext(): Promise<{ data: SignatureResponse; type: 'short' | 'full' }> {
   const internal = await isInternalOnly();
-  if (internal) {
-    return fetchReplySignature();
+  if (internal || threadHasSignature) {
+    return { data: await fetchReplySignature(), type: 'short' };
   }
-  const hasSignature = await hasExistingSignature();
-  if (hasSignature) {
-    return fetchReplySignature();
-  }
-  return fetchSignature();
+  return { data: await fetchSignature(), type: 'full' };
 }
 
 /**
  * LaunchEvent Handler: Wird von Outlook aufgerufen wenn sich Empfänger ändern.
  * Deklariert im Manifest als OnMessageRecipientsChanged.
  * Intern → immer kurze Signatur
- * Extern + Marker im Body → kurze Signatur
- * Extern + kein Marker → volle Signatur
+ * Extern + Thread hat Signatur → kurze Signatur
+ * Extern + Thread hat keine Signatur → volle Signatur
+ *
+ * Verwendet threadHasSignature (einmal beim Compose-Start ermittelt),
+ * NICHT hasExistingSignature() live, da unsere eigene Signatur
+ * sonst als false positive erkannt wird.
  */
 async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Promise<void> {
   try {
     const internal = await isInternalOnly();
-    const hasSignature = await hasExistingSignature();
 
     // Zieltyp bestimmen
     let targetType: 'short' | 'full';
-    if (internal || hasSignature) {
+    if (internal || threadHasSignature) {
       targetType = 'short';
     } else {
       targetType = 'full';
@@ -418,15 +424,20 @@ async function insertSignature(event: Office.AddinCommands.Event): Promise<void>
 /**
  * Event Handler: Bei neuer Mail automatisch Signatur einfügen.
  * Empfänger-Wechsel wird über separates LaunchEvent (OnMessageRecipientsChanged) gehandelt.
+ *
+ * WICHTIG: threadHasSignature wird VOR dem Einfügen geprüft,
+ * damit unsere eigene Signatur nicht als false positive zählt.
  */
 async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<void> {
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const internal = await isInternalOnly();
-    const signatureData = await getSignatureForContext();
-    await insertSignatureAtEnd(signatureData);
-    currentSignatureType = (internal || await hasExistingSignature()) ? 'short' : 'full';
+    // Thread-Signatur VOR dem Einfügen prüfen (bei Antworten enthält der Body die Vorgänger-Mail)
+    threadHasSignature = await hasExistingSignature();
+
+    const result = await getSignatureForContext();
+    await insertSignatureAtEnd(result.data);
+    currentSignatureType = result.type;
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
   }
