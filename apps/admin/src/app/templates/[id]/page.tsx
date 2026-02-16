@@ -13,6 +13,7 @@ interface Template {
   name: string;
   description?: string;
   htmlContent: string;
+  htmlContentReply?: string;
   isDefault: boolean;
   isActive: boolean;
 }
@@ -26,6 +27,7 @@ export default function EditTemplatePage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
+  const [htmlContentReply, setHtmlContentReply] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,6 +76,7 @@ export default function EditTemplatePage() {
         setName(data.name);
         setDescription(data.description || '');
         setHtmlContent(data.htmlContent);
+        setHtmlContentReply(data.htmlContentReply || '');
         setIsDefault(data.isDefault);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fehler beim Laden');
@@ -97,7 +100,7 @@ export default function EditTemplatePage() {
       const res = await authFetch('/api/templates', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: templateId, name, description, htmlContent, isDefault }),
+        body: JSON.stringify({ id: templateId, name, description, htmlContent, htmlContentReply: htmlContentReply || undefined, isDefault }),
       });
 
       if (!res.ok) {
@@ -246,7 +249,12 @@ export default function EditTemplatePage() {
                   Platzhalter werden automatisch ersetzt
                 </div>
               </div>
-              <SignatureEditor value={htmlContent} onChange={setHtmlContent} />
+              <SignatureEditor
+                value={htmlContent}
+                onChange={setHtmlContent}
+                replyValue={htmlContentReply}
+                onReplyChange={setHtmlContentReply}
+              />
             </div>
 
             {/* Placeholder Reference */}

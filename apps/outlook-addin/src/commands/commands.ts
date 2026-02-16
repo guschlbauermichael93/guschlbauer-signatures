@@ -231,39 +231,66 @@ function insertSignatureFallback(item: Office.MessageCompose, signature: string)
 }
 
 /**
- * Prüft ob die aktuelle Mail eine Antwort oder Weiterleitung ist
+ * Prüft ob die vollständige Signatur bereits im E-Mail-Body vorhanden ist.
+ * Erkennung über unsichtbaren Marker-Span (data-guschlbauer-sig),
+ * HTML-Kommentar (guschlbauer-signature) als Fallback.
  */
-function isReplyOrForward(): Promise<boolean> {
+function hasExistingSignature(): Promise<boolean> {
   return new Promise((resolve) => {
     const item = Office.context.mailbox.item;
     if (!item) { resolve(false); return; }
 
-    item.subject.getAsync((result) => {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        const subject = (result.value || '').trim().toUpperCase();
-        resolve(
-          subject.startsWith('RE:') ||
-          subject.startsWith('AW:') ||
-          subject.startsWith('FW:') ||
-          subject.startsWith('WG:')
-        );
-      } else {
+    item.body.getAsync(Office.CoercionType.Html, (result) => {
+      if (result.status !== Office.AsyncResultStatus.Succeeded || !result.value) {
         resolve(false);
+        return;
       }
+      const body = result.value;
+      resolve(
+        body.includes('data-guschlbauer-sig') ||
+        body.includes('<!-- guschlbauer-signature -->')
+      );
     });
   });
 }
 
+// Cache für Reply-Signatur
+let cachedReplySignature: SignatureResponse | null = null;
+let replyCacheTimestamp: number = 0;
+
 /**
- * Einfache Grußformel-Signatur für interne Antworten/Weiterleitungen
+ * Holt die Antwort-Signatur vom Server (mit Platzhalter-Ersetzung).
+ * Fallback auf einfache Grußformel wenn API nicht erreichbar.
  */
-function getReplySignature(): SignatureResponse {
-  const profile = Office.context.mailbox.userProfile;
-  const name = profile.displayName || 'Mitarbeiter';
-  return {
-    html: `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin: 0;">Freundliche Gr&uuml;&szlig;e<br><strong>${name}</strong></p>`,
-    attachments: [],
-  };
+async function fetchReplySignature(): Promise<SignatureResponse> {
+  if (cachedReplySignature && Date.now() - replyCacheTimestamp < CACHE_DURATION) {
+    return cachedReplySignature;
+  }
+
+  try {
+    const userEmail = Office.context.mailbox.userProfile.emailAddress;
+    const response = await fetch(`${API_BASE_URL}/signature?email=${encodeURIComponent(userEmail)}&type=reply`, {
+      headers: await getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    cachedReplySignature = { html: data.html, attachments: data.attachments || [] };
+    replyCacheTimestamp = Date.now();
+    return cachedReplySignature;
+  } catch (error) {
+    console.error('Fehler beim Laden der Antwort-Signatur:', error);
+    // Fallback: einfache Grußformel
+    const profile = Office.context.mailbox.userProfile;
+    const name = profile.displayName || 'Mitarbeiter';
+    return {
+      html: `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin: 0;">Freundliche Gr&uuml;&szlig;e<br><strong>${name}</strong></p>`,
+      attachments: [],
+    };
+  }
 }
 
 /**
@@ -298,13 +325,13 @@ function isInternalOnly(): Promise<boolean> {
 
 /**
  * Wählt die passende Signatur basierend auf Kontext (Auto-Insert):
- * - Antwort/Weiterleitung: kurze Grußformel
- * - Neue Mail: volle Signatur (noch keine Empfänger bekannt)
+ * - Vollständige Signatur bereits im Body: Antwort-Signatur
+ * - Sonst: volle Signatur
  */
 async function getSignatureForContext(): Promise<SignatureResponse> {
-  const reply = await isReplyOrForward();
-  if (reply) {
-    return getReplySignature();
+  const hasSignature = await hasExistingSignature();
+  if (hasSignature) {
+    return fetchReplySignature();
   }
   return fetchSignature();
 }
@@ -317,9 +344,9 @@ async function getSignatureForContext(): Promise<SignatureResponse> {
  */
 async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    // Bei Antworten/Weiterleitungen: nicht wechseln, immer kurze Grußformel
-    const reply = await isReplyOrForward();
-    if (reply) {
+    // Wenn die vollständige Signatur schon im Verlauf ist: nicht wechseln
+    const hasSignature = await hasExistingSignature();
+    if (hasSignature) {
       event.completed();
       return;
     }
@@ -333,7 +360,7 @@ async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Pr
       return;
     }
 
-    const signatureData = internal ? getReplySignature() : await fetchSignature();
+    const signatureData = internal ? await fetchReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
     currentSignatureType = targetType;
   } catch (error) {
@@ -350,7 +377,7 @@ async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Pr
 async function insertSignature(event: Office.AddinCommands.Event): Promise<void> {
   try {
     const internal = await isInternalOnly();
-    const signatureData = internal ? getReplySignature() : await fetchSignature();
+    const signatureData = internal ? await fetchReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
     currentSignatureType = internal ? 'short' : 'full';
 
@@ -388,7 +415,7 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
 
     const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
-    currentSignatureType = (await isReplyOrForward()) ? 'short' : 'full';
+    currentSignatureType = (await hasExistingSignature()) ? 'short' : 'full';
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
   }

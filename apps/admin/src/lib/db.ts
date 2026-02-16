@@ -77,6 +77,19 @@ function initializeSchema(database: Database.Database) {
     // Spalte existiert bereits
   }
 
+  // Migration: html_content_reply Spalte hinzufügen falls nicht vorhanden
+  try {
+    database.exec(`ALTER TABLE templates ADD COLUMN html_content_reply TEXT`);
+  } catch {
+    // Spalte existiert bereits
+  }
+
+  // Migration: Default Reply-Template für bestehende Templates setzen
+  database.prepare(`
+    UPDATE templates SET html_content_reply = ?
+    WHERE html_content_reply IS NULL AND id = 'default'
+  `).run(DEFAULT_REPLY_TEMPLATE_HTML);
+
   // User-Template Zuweisungen
   database.exec(`
     CREATE TABLE IF NOT EXISTS user_templates (
@@ -111,13 +124,14 @@ function seedDefaultData(database: Database.Database) {
 
   // Default Template
   database.prepare(`
-    INSERT INTO templates (id, name, description, html_content, is_default, is_active, created_by)
-    VALUES (?, ?, ?, ?, 1, 1, 'system')
+    INSERT INTO templates (id, name, description, html_content, html_content_reply, is_default, is_active, created_by)
+    VALUES (?, ?, ?, ?, ?, 1, 1, 'system')
   `).run(
     'default',
     'Standard Signatur',
     'Offizielle Guschlbauer-Signatur mit Logo',
-    DEFAULT_TEMPLATE_HTML
+    DEFAULT_TEMPLATE_HTML,
+    DEFAULT_REPLY_TEMPLATE_HTML
   );
 
   // Default Logo
@@ -173,4 +187,9 @@ const DEFAULT_TEMPLATE_HTML = `<table cellpadding="0" cellspacing="0" border="0"
   </tr>
 </table>`;
 
-const PLACEHOLDER_LOGO = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjYwIiB2aWV3Qm94PSIwIDAgMTIwIDYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iNjAiIGZpbGw9IiNlZDc1MWQiIHJ4PSI4Ii8+PHRleHQgeD0iNjAiIHk9IjM4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iYm9sZCI+R3VzY2hsYmF1ZXI8L3RleHQ+PC9zdmc+';
+const DEFAULT_REPLY_TEMPLATE_HTML = `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; margin: 0;">
+  Freundliche Gr&uuml;&szlig;e<br />
+  <strong>{{displayName}}</strong>
+</p>`;
+
+const PLACEHOLDER_LOGO ='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjYwIiB2aWV3Qm94PSIwIDAgMTIwIDYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iNjAiIGZpbGw9IiNlZDc1MWQiIHJ4PSI4Ii8+PHRleHQgeD0iNjAiIHk9IjM4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iYm9sZCI+R3VzY2hsYmF1ZXI8L3RleHQ+PC9zdmc+';

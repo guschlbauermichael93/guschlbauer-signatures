@@ -34,12 +34,18 @@ const DEFAULT_TEMPLATE = `<table cellpadding="0" cellspacing="0" border="0" styl
   </tr>
 </table>`;
 
+const DEFAULT_REPLY_TEMPLATE = `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; margin: 0;">
+  Freundliche Gr&uuml;&szlig;e<br />
+  <strong>{{displayName}}</strong>
+</p>`;
+
 export default function NewTemplatePage() {
   const router = useRouter();
   const authFetch = useAuthFetch();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [htmlContent, setHtmlContent] = useState(DEFAULT_TEMPLATE);
+  const [htmlContentReply, setHtmlContentReply] = useState(DEFAULT_REPLY_TEMPLATE);
   const [isDefault, setIsDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +95,7 @@ export default function NewTemplatePage() {
       const res = await authFetch('/api/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, htmlContent, isDefault }),
+        body: JSON.stringify({ name, description, htmlContent, htmlContentReply: htmlContentReply || undefined, isDefault }),
       });
 
       if (!res.ok) {
@@ -210,7 +216,12 @@ export default function NewTemplatePage() {
                   Platzhalter werden automatisch ersetzt
                 </div>
               </div>
-              <SignatureEditor value={htmlContent} onChange={setHtmlContent} />
+              <SignatureEditor
+                value={htmlContent}
+                onChange={setHtmlContent}
+                replyValue={htmlContentReply}
+                onReplyChange={setHtmlContentReply}
+              />
             </div>
 
             {/* Placeholder Reference */}

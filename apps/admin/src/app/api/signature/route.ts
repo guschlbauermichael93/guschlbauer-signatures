@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const email = searchParams.get('email');
     const templateId = searchParams.get('templateId');
     const embedMode = searchParams.get('embed') || 'inline'; // 'inline' (base64), 'url', oder 'cid'
+    const signatureType = searchParams.get('type') || 'full'; // 'full' oder 'reply'
 
     if (!email) {
       return NextResponse.json({ error: 'Email parameter required' }, { status: 400 });
@@ -57,8 +58,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No template found' }, { status: 404 });
     }
 
-    // Alle Assets einbetten (logo, banner, etc.)
-    let htmlContent = template.htmlContent;
+    // Bei Reply-Typ: Antwort-Signatur verwenden (Fallback auf einfache Grußformel)
+    const FALLBACK_REPLY = `<p style="font-family: Arial, sans-serif; font-size: 14px; color: #333333; margin: 0;">Freundliche Gr&uuml;&szlig;e<br /><strong>{{displayName}}</strong></p>`;
+    let htmlContent = signatureType === 'reply'
+      ? (template.htmlContentReply || FALLBACK_REPLY)
+      : template.htmlContent;
     const assets = await getAllAssets();
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
     const usedAssets: Array<{ id: string; filename: string; mimeType: string; base64: string }> = [];
@@ -98,7 +102,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Template rendern
-    const renderedHtml = renderTemplate(htmlContent, user);
+    let renderedHtml = renderTemplate(htmlContent, user);
+
+    // Bei voller Signatur: unsichtbaren Marker einfügen (für Reply-Erkennung im Add-In)
+    if (signatureType === 'full') {
+      renderedHtml += '<span data-guschlbauer-sig="1" style="display:none;font-size:0;line-height:0"></span>';
+    }
+
     const plainText = htmlToPlainText(renderedHtml);
 
     const response: Record<string, unknown> = {

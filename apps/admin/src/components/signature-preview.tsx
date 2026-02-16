@@ -110,8 +110,6 @@ export function SignaturePreview({ htmlContent, user, users = [], assets = [] }:
             Sehr geehrte Damen und Herren,
             <br /><br />
             vielen Dank für Ihre Anfrage. Gerne sende ich Ihnen die gewünschten Informationen zu.
-            <br /><br />
-            Mit freundlichen Grüßen
           </p>
 
           {/* Signature */}

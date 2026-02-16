@@ -10,6 +10,7 @@ interface DbTemplate {
   name: string;
   description: string | null;
   html_content: string;
+  html_content_reply: string | null;
   is_default: number;
   is_active: number;
   created_at: string;
@@ -23,6 +24,7 @@ function mapDbToTemplate(row: DbTemplate): SignatureTemplate {
     name: row.name,
     description: row.description || undefined,
     htmlContent: row.html_content,
+    htmlContentReply: row.html_content_reply || undefined,
     isDefault: row.is_default === 1,
     isActive: row.is_active === 1,
     createdAt: new Date(row.created_at),
@@ -72,13 +74,14 @@ export async function createTemplate(
   }
 
   db.prepare(`
-    INSERT INTO templates (id, name, description, html_content, is_default, is_active, created_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
+    INSERT INTO templates (id, name, description, html_content, html_content_reply, is_default, is_active, created_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
   `).run(
     id,
     input.name,
     input.description || null,
     input.htmlContent,
+    input.htmlContentReply || null,
     input.isDefault ? 1 : 0,
     userEmail || null
   );
@@ -115,6 +118,10 @@ export async function updateTemplate(
   if (input.htmlContent !== undefined) {
     updates.push('html_content = ?');
     values.push(input.htmlContent);
+  }
+  if (input.htmlContentReply !== undefined) {
+    updates.push('html_content_reply = ?');
+    values.push(input.htmlContentReply || null);
   }
   if (input.isDefault !== undefined) {
     updates.push('is_default = ?');

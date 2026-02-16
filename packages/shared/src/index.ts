@@ -25,6 +25,7 @@ export interface SignatureTemplate {
   name: string;
   description?: string;
   htmlContent: string;
+  htmlContentReply?: string;
   isDefault: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -36,6 +37,7 @@ export interface SignatureTemplateCreateInput {
   name: string;
   description?: string;
   htmlContent: string;
+  htmlContentReply?: string;
   isDefault?: boolean;
 }
 
@@ -43,6 +45,7 @@ export interface SignatureTemplateUpdateInput {
   name?: string;
   description?: string;
   htmlContent?: string;
+  htmlContentReply?: string;
   isDefault?: boolean;
   isActive?: boolean;
 }
