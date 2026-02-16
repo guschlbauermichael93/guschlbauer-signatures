@@ -104,7 +104,7 @@ Der Guschlbauer Signatur Manager ist ein zentrales System zur Verwaltung und Ver
 | Export | Typ | Beschreibung |
 |---|---|---|
 | `AzureADUser` | Interface | Benutzerdaten aus Microsoft Graph |
-| `SignatureTemplate` | Interface | Signatur-Vorlage |
+| `SignatureTemplate` | Interface | Signatur-Vorlage (inkl. `htmlContentReply`) |
 | `SignatureAsset` | Interface | Bild/Logo Asset |
 | `TEMPLATE_PLACEHOLDERS` | Konstante | Verfügbare Platzhalter-Zuordnungen |
 | `renderTemplate()` | Funktion | Ersetzt Platzhalter im HTML mit Benutzerdaten |
@@ -265,7 +265,8 @@ guschlbauer-signatures/
 | `id` | TEXT PRIMARY KEY | Eindeutige ID (z.B. "default") |
 | `name` | TEXT NOT NULL | Anzeigename |
 | `description` | TEXT | Beschreibung |
-| `html_content` | TEXT NOT NULL | HTML-Template mit Platzhaltern |
+| `html_content` | TEXT NOT NULL | HTML-Template mit Platzhaltern (vollständige Signatur) |
+| `html_content_reply` | TEXT | HTML-Template für Antwort-Signatur (kurze Grußformel) |
 | `is_default` | INTEGER DEFAULT 0 | 1 = Standard-Vorlage |
 | `is_active` | INTEGER DEFAULT 1 | 0 = gelöscht (Soft Delete) |
 | `created_at` | TEXT | Erstellungszeitpunkt (ISO) |
@@ -335,7 +336,7 @@ Alle aktiven Vorlagen auflisten.
 
 **Response:**
 ```json
-{ "items": [{ "id": "default", "name": "Standard Signatur", "description": "...", "htmlContent": "...", "isDefault": true, "isActive": true, "createdAt": "...", "updatedAt": "..." }], "total": 1 }
+{ "items": [{ "id": "default", "name": "Standard Signatur", "description": "...", "htmlContent": "...", "htmlContentReply": "...", "isDefault": true, "isActive": true, "createdAt": "...", "updatedAt": "..." }], "total": 1 }
 ```
 
 #### `GET /api/templates?id=default`
@@ -346,7 +347,7 @@ Neue Vorlage erstellen.
 
 **Body:**
 ```json
-{ "name": "Neue Vorlage", "description": "...", "htmlContent": "<table>...</table>", "isDefault": false }
+{ "name": "Neue Vorlage", "description": "...", "htmlContent": "<table>...</table>", "htmlContentReply": "<p>Freundliche Grüße<br><strong>{{displayName}}</strong></p>", "isDefault": false }
 ```
 
 #### `PUT /api/templates`
@@ -354,7 +355,7 @@ Vorlage aktualisieren.
 
 **Body:**
 ```json
-{ "id": "default", "name": "Standard Signatur", "htmlContent": "...", "isDefault": true }
+{ "id": "default", "name": "Standard Signatur", "htmlContent": "...", "htmlContentReply": "...", "isDefault": true }
 ```
 
 #### `DELETE /api/templates?id=xyz`
@@ -408,11 +409,15 @@ Personalisierte Signatur generieren.
 | `email` | Ja | E-Mail des Benutzers |
 | `templateId` | Nein | Spezifische Vorlage (Standard: zugewiesene oder Default) |
 | `embed` | Nein | Bild-Einbettungsmodus: `inline` (Base64), `url` (Server-URLs), `cid` (Content-ID) |
+| `type` | Nein | `full` (Standard) oder `reply`. Bei `reply` wird `html_content_reply` des Templates verwendet |
+
+**Signatur-Marker:**
+Bei `type=full` wird die HTML-Ausgabe mit `<!-- gsig -->` HTML-Kommentaren umschlossen. Das Outlook Add-In erkennt damit, ob die volle Signatur bereits im E-Mail-Thread vorhanden ist.
 
 **Response (embed=cid):**
 ```json
 {
-  "html": "<table>...cid:logo.jpeg...</table>",
+  "html": "<!-- gsig --><table>...cid:logo.jpeg...</table><!-- /gsig -->",
   "plainText": "Max Mustermann\nGeschäftsführer\n...",
   "templateId": "default",
   "userId": "mock-1",
@@ -464,7 +469,7 @@ Dashboard-Statistiken.
 | Modus | Header | Verwendung |
 |---|---|---|
 | **Azure AD Token** | `Authorization: Bearer <idToken>` | Admin-UI im Browser |
-| **API Key** | `Authorization: ApiKey <secret>` | Outlook Add-In |
+| **Azure AD SSO** | `Authorization: Bearer <ssoToken>` | Outlook Add-In (via `Office.auth.getAccessTokenAsync()`) |
 | **DEV_MODE** | keiner nötig | Lokale Entwicklung |
 
 ### Azure AD Integration
@@ -476,7 +481,8 @@ Dashboard-Statistiken.
 ### Outlook Add-In SSO
 - Nutzt `Office.auth.getAccessTokenAsync()` für Azure AD Token aus der Outlook-Session
 - Token wird vom Backend wie Admin-UI-Tokens validiert (gleiche `validateAzureADToken()`)
-- Kein statischer API-Key mehr im Build-Output
+- SSO-Token wird 4 Minuten im Add-In gecacht
+- Azure AD App Registration benötigt "Expose an API" mit `access_as_user` Scope und autorisierten Office Client IDs
 
 ### Sicherheitsmaßnahmen
 
@@ -504,12 +510,33 @@ Dashboard-Statistiken.
 
 | Funktion | Trigger | Verhalten |
 |---|---|---|
-| `insertSignature` | Ribbon-Button "Signatur einfügen" | Immer volle Signatur (Logo + Kontaktdaten) |
-| `onNewMessageComposeHandler` | LaunchEvent (neue Mail) | Volle Signatur (neue Mail) oder kurze Grußformel (Antwort/Weiterleitung) |
+| `insertSignature` | Ribbon-Button "Signatur einfügen" | Intern → Antwort-Signatur, Extern → volle Signatur |
+| `onNewMessageComposeHandler` | LaunchEvent (neue Mail) | Wählt Signatur basierend auf Empfänger und Thread-Kontext |
+| `onMessageRecipientsChangedHandler` | LaunchEvent (Empfänger geändert) | Wechselt automatisch zwischen voller und kurzer Signatur |
 | `openTaskpane` | Ribbon-Button "Einstellungen" | Öffnet Taskpane mit Template-Auswahl |
 
-### Antwort-/Weiterleitungserkennung
-Prüft den Betreff auf folgende Präfixe: `RE:`, `AW:`, `FW:`, `WG:`
+### Signatur-Auswahl-Logik
+
+Die Signatur wird automatisch basierend auf zwei Faktoren gewählt:
+
+1. **Empfänger-Typ** (intern/extern):
+   - Nur interne Empfänger (`@guschlbauer.at` / `@guschlbauer.cc`) → **immer kurze Antwort-Signatur**
+   - Mindestens ein externer Empfänger → Prüfung auf Thread-Signatur (siehe Punkt 2)
+
+2. **Thread-Signatur-Erkennung** (nur bei externen Empfängern):
+   - Beim Öffnen des Compose-Fensters wird **einmalig** geprüft, ob der E-Mail-Body bereits eine Guschlbauer-Signatur enthält (z.B. bei Antworten)
+   - Erkennung über: HTML-Kommentar `<!-- gsig -->`, Legacy-Kommentar `<!-- guschlbauer-signature -->`, oder Firmenname "Guschlbauer Backwaren" im Body
+   - Thread hat Signatur → **kurze Antwort-Signatur** (volle ist schon im Thread sichtbar)
+   - Thread hat keine Signatur → **volle Signatur**
+
+**Wichtig:** Die Thread-Prüfung (`threadHasSignature`) wird nur VOR dem Einfügen der eigenen Signatur durchgeführt, um False Positives durch die eigene gerade eingefügte Signatur zu vermeiden.
+
+### Empfänger-Wechsel
+
+Bei Änderung der Empfänger wird die Signatur automatisch gewechselt:
+- Extern → Intern: Wechsel auf kurze Signatur
+- Intern → Extern: Wechsel auf volle Signatur (wenn Thread keine Signatur hat)
+- Unnötige Wechsel werden über `currentSignatureType` Tracking vermieden
 
 ### Bild-Einbettung (CID)
 1. API liefert HTML mit `cid:logo.jpeg` Referenzen + Base64-Attachments
@@ -521,7 +548,9 @@ Prüft den Betreff auf folgende Präfixe: `RE:`, `AW:`, `FW:`, `WG:`
 - **Fallback** (`body.setAsync`): Fügt Signatur am Ende des Body ein, markiert mit HTML-Kommentaren (`<!-- guschlbauer-signature -->`)
 
 ### Cache
-- Signaturen werden 5 Minuten im Speicher gecacht
+- Volle Signaturen werden 5 Minuten im Speicher gecacht
+- Antwort-Signaturen haben einen separaten Cache (ebenfalls 5 Minuten)
+- SSO-Token wird 4 Minuten gecacht
 - "Daten aktualisieren" im Taskpane invalidiert den Cache
 
 ### API-Konfiguration

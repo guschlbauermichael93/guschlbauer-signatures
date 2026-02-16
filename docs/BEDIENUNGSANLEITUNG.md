@@ -81,14 +81,16 @@ Unter **Vorlagen** sehen Sie alle Signatur-Vorlagen. Jede Vorlage hat:
    - **Name**: Ein eindeutiger Name (z.B. "Standard Signatur", "Vertrieb Signatur")
    - **Beschreibung**: Optionale kurze Beschreibung
    - **Als Standard festlegen**: Aktivieren, wenn diese Vorlage standardmäßig verwendet werden soll
-3. Bearbeiten Sie das **HTML Template** im Editor (linke Seite)
+3. Bearbeiten Sie das **HTML Template** im Editor (linke Seite). Der Editor hat zwei Tabs:
+   - **Vollständige Signatur**: Die Hauptsignatur mit Logo, Kontaktdaten etc. (wird bei neuen E-Mails an externe Empfänger verwendet)
+   - **Antwort-Signatur**: Eine kurze Grußformel (z.B. "Freundliche Grüße + Name"), die bei Antworten und internen E-Mails verwendet wird
 4. Die **Vorschau** (rechte Seite) zeigt in Echtzeit, wie die Signatur aussehen wird
 5. Klicken Sie auf **"Speichern"**
 
 ### 4.3 Vorlage bearbeiten
 
 1. Klicken Sie in der Vorlagen-Tabelle auf **"Bearbeiten"** (Stift-Symbol)
-2. Ändern Sie die gewünschten Felder
+2. Ändern Sie die gewünschten Felder (inkl. Antwort-Signatur über den zweiten Tab)
 3. Die Vorschau aktualisiert sich live während Sie tippen
 4. Klicken Sie auf **"Speichern"**
 
@@ -205,15 +207,19 @@ Um die fertige Signatur eines Mitarbeiters zu sehen:
 
 ### 7.1 Was macht das Add-In?
 
-Das Outlook Add-In fügt automatisch die personalisierte Signatur in E-Mails ein:
-- **Neue E-Mail**: Volle Signatur mit Logo, Kontaktdaten und allen Details
-- **Antwort/Weiterleitung**: Kurze Grußformel ("Freundliche Grüße" + Name)
+Das Outlook Add-In fügt automatisch die personalisierte Signatur in E-Mails ein und wählt je nach Kontext die richtige Variante:
+
+- **Neue E-Mail an externe Empfänger**: Volle Signatur mit Logo, Kontaktdaten und allen Details
+- **E-Mail an interne Empfänger** (`@guschlbauer.at` / `@guschlbauer.cc`): Immer die kurze Antwort-Signatur (z.B. "Freundliche Grüße + Name")
+- **Antwort/Weiterleitung** (wenn die volle Signatur bereits im E-Mail-Thread vorhanden ist): Kurze Antwort-Signatur
+
+Die Antwort-Signatur wird im Admin-Panel pro Vorlage konfiguriert (siehe Abschnitt 4.2).
 
 ### 7.2 Ribbon-Button "Signatur einfügen"
 
 Beim Verfassen einer E-Mail erscheint in der Outlook-Menüleiste die Gruppe **"Signatur"** mit zwei Buttons:
 
-1. **"Signatur einfügen"**: Fügt die volle Signatur am Ende der E-Mail ein. Der Cursor bleibt am Anfang der Nachricht.
+1. **"Signatur einfügen"**: Fügt die Signatur am Ende der E-Mail ein. Bei internen Empfängern wird die kurze Antwort-Signatur verwendet, bei externen die volle Signatur. Der Cursor bleibt am Anfang der Nachricht.
 2. **"Einstellungen"**: Öffnet das Einstellungsfenster (Taskpane) zum Auswählen einer anderen Vorlage.
 
 ### 7.3 Einstellungsfenster (Taskpane)
@@ -227,8 +233,11 @@ Im Taskpane können Sie:
 ### 7.4 Automatische Signatur
 
 Wenn das Add-In mit LaunchEvent-Unterstützung installiert ist (Mailbox API 1.10+), wird die Signatur automatisch eingefügt:
-- Neue E-Mail: Volle Signatur wird automatisch hinzugefügt
-- Antwort/Weiterleitung: Nur "Freundliche Grüße" + Ihr Name
+- **Neue E-Mail an externe Empfänger**: Volle Signatur wird automatisch hinzugefügt
+- **Interne Empfänger**: Immer die kurze Antwort-Signatur
+- **Antwort/Weiterleitung**: Kurze Antwort-Signatur (die volle Signatur ist bereits im Thread sichtbar)
+
+Wenn Sie Empfänger ändern (z.B. von extern auf intern), wird die Signatur automatisch gewechselt.
 
 ### 7.5 Bilder in der Signatur
 
