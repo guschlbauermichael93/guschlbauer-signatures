@@ -325,10 +325,15 @@ function isInternalOnly(): Promise<boolean> {
 
 /**
  * Wählt die passende Signatur basierend auf Kontext (Auto-Insert):
- * - Vollständige Signatur bereits im Body: Antwort-Signatur
- * - Sonst: volle Signatur
+ * - Nur interne Empfänger → immer kurze Signatur
+ * - Externe Empfänger + Signatur schon im Body → kurze Signatur
+ * - Externe Empfänger + keine Signatur im Body → volle Signatur
  */
 async function getSignatureForContext(): Promise<SignatureResponse> {
+  const internal = await isInternalOnly();
+  if (internal) {
+    return fetchReplySignature();
+  }
   const hasSignature = await hasExistingSignature();
   if (hasSignature) {
     return fetchReplySignature();
@@ -339,20 +344,22 @@ async function getSignatureForContext(): Promise<SignatureResponse> {
 /**
  * LaunchEvent Handler: Wird von Outlook aufgerufen wenn sich Empfänger ändern.
  * Deklariert im Manifest als OnMessageRecipientsChanged.
- * Intern (nur @guschlbauer.*) → kurze Grußformel
- * Extern oder leer → volle Signatur
+ * Intern → immer kurze Signatur
+ * Extern + Marker im Body → kurze Signatur
+ * Extern + kein Marker → volle Signatur
  */
 async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Promise<void> {
   try {
-    // Wenn die vollständige Signatur schon im Verlauf ist: nicht wechseln
-    const hasSignature = await hasExistingSignature();
-    if (hasSignature) {
-      event.completed();
-      return;
-    }
-
     const internal = await isInternalOnly();
-    const targetType = internal ? 'short' : 'full';
+    const hasSignature = await hasExistingSignature();
+
+    // Zieltyp bestimmen
+    let targetType: 'short' | 'full';
+    if (internal || hasSignature) {
+      targetType = 'short';
+    } else {
+      targetType = 'full';
+    }
 
     // Nur wechseln wenn sich der Typ tatsächlich ändert
     if (targetType === currentSignatureType) {
@@ -360,7 +367,7 @@ async function onMessageRecipientsChanged(event: Office.AddinCommands.Event): Pr
       return;
     }
 
-    const signatureData = internal ? await fetchReplySignature() : await fetchSignature();
+    const signatureData = targetType === 'short' ? await fetchReplySignature() : await fetchSignature();
     await insertSignatureAtEnd(signatureData);
     currentSignatureType = targetType;
   } catch (error) {
@@ -413,9 +420,10 @@ async function onNewMessageCompose(event: Office.AddinCommands.Event): Promise<v
   try {
     await new Promise(resolve => setTimeout(resolve, 500));
 
+    const internal = await isInternalOnly();
     const signatureData = await getSignatureForContext();
     await insertSignatureAtEnd(signatureData);
-    currentSignatureType = (await hasExistingSignature()) ? 'short' : 'full';
+    currentSignatureType = (internal || await hasExistingSignature()) ? 'short' : 'full';
   } catch (error) {
     console.error('Auto-Signatur Fehler:', error);
   }
